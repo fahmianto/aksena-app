@@ -47,14 +47,14 @@ export default function Register() {
         <div className="auth-logo">
           <div className="auth-logo-icon"><Zap size={20} /></div>
           <div>
-            <div className="auth-logo-name">AKSENA</div>
+            <div className="auth-logo-name">AKSENA.ID</div>
             <div className="auth-logo-sub">Intelligence Platform</div>
           </div>
         </div>
 
         <div className="auth-header">
           <h1>Buat Akun Baru</h1>
-          <p>Mulai transformasi bisnis Anda dengan Aksena</p>
+          <p>Mulai transformasi bisnis Anda dengan Aksena.id</p>
         </div>
 
         {error && (

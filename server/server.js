@@ -2,16 +2,22 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// Inisialisasi Firebase Admin (Digunakan untuk memuat data tanpa batas rule read/write umum)
-// const admin = require('firebase-admin');
-// const serviceAccount = require('./serviceAccountKey.json'); // Nanti didapatkan dari Firebase Settings
+const admin = require('firebase-admin');
+// CATATAN: Bro perlu menaruh file serviceAccountKey.json di folder server/ ini
+// agar backend bisa mengakses database secara aman.
+const serviceAccountPath = './serviceAccountKey.json'; 
 
-/*
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-const db = admin.firestore();
-*/
+try {
+  const serviceAccount = require(serviceAccountPath);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('✅ Firebase Admin Initialized');
+} catch (e) {
+  console.warn('⚠️ Firebase Admin gagal load (File json belum ada). Fitur Atomic Stok dinonaktifkan.');
+}
+
+const db = admin.apps.length > 0 ? admin.firestore() : null;
 
 const app = express();
 app.use(cors());
@@ -56,9 +62,9 @@ app.post('/webhook/whatsapp', async (req, res) => {
       // TODO: Simpan `textMessage` ke Firestore 'conversations' & 'messages'
       // agar sinkron ke The Harvester Aksena.
 
-      res.sendStatus(200); // Wajib balas 200 OK agar Meta tidak terus mengirim ulang
+      res.sendStatus(200); 
     } else {
-      res.sendStatus(200); // Balas OK untuk status/receipt
+      res.sendStatus(200); 
     }
   } else {
     res.sendStatus(404);
@@ -66,10 +72,134 @@ app.post('/webhook/whatsapp', async (req, res) => {
 });
 
 // ==========================================
-// ROUTE 3: Uji Coba Server Nyala (Ping)
+// ROUTE 3: Conflict Resolution (Atomic Reservation)
+// ==========================================
+app.post('/api/inventory/reserve', async (req, res) => {
+  const { productId, qty, userId } = req.body;
+
+  if (!db) return res.status(500).json({ error: 'Database not connected' });
+
+  try {
+    const productRef = db.collection('products').doc(productId);
+    
+    const result = await db.runTransaction(async (t) => {
+      const doc = await t.get(productRef);
+      if (!doc.exists) throw new Error('Produk tidak ditemukan');
+
+      const currentStock = doc.data().stock || 0;
+      if (currentStock < qty) {
+        return { success: false, reason: 'OUT_OF_STOCK' };
+      }
+
+      // 1. Kurangi stok utama secara atomik
+      t.update(productRef, { stock: currentStock - qty });
+
+      // 2. Buat record reservasi (Soft-Booking)
+      const reservationRef = db.collection('reservations').doc();
+      t.set(reservationRef, {
+        productId,
+        qty,
+        userId,
+        status: 'BOOKED',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000) // TTL 60 Menit
+      });
+
+      return { success: true, reservationId: reservationRef.id };
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Reservation Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// ROUTE 4: Smart Substitute (The Matching Engine)
+// ==========================================
+app.post('/api/ai/substitute', async (req, res) => {
+  const { categoryId, originalPrice } = req.body;
+
+  if (!db) return res.status(500).json({ error: 'Database not connected' });
+
+  try {
+    // Cari produk di kategori yang sama dengan stok > 0
+    const snapshot = await db.collection('products')
+      .where('category', '==', categoryId)
+      .where('stock', '>', 0)
+      .limit(5)
+      .get();
+
+    const candidates = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Hitung selisih harga (Price Similarity)
+      const priceDiff = Math.abs(data.price - originalPrice);
+      candidates.push({ id: doc.id, ...data, priceDiff });
+    });
+
+    // Urutkan berdasarkan harga terdekat
+    candidates.sort((a, b) => a.priceDiff - b.priceDiff);
+
+    res.json({ alternatives: candidates.slice(0, 2) });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mencari substitusi' });
+  }
+});
+
+// ==========================================
+// ROUTE 5: AI Generation (The Closer)
+// ==========================================
+app.post('/api/ai/generate', async (req, res) => {
+  const { prompt, context, userId, stockOut } = req.body;
+
+  try {
+    console.log(`🤖 AI Sedang berpikir untuk user: ${userId}...`);
+    
+    let reply = "";
+    if (stockOut) {
+      // Logic Smart Substitute di sini
+      reply = `Waduh Kak, mohon maaf sekali. Stok produk tersebut baru saja habis. Tapi tenang, Aksena punya rekomendasi pengganti yang gak kalah keren dan harganya mirip lho! Mau dikirimin fotonya?`;
+    } else {
+      reply = `Halo Kak! Ini adalah balasan otomatis AI Aksena. Ada yang bisa kami bantu mengenai produk ${prompt}?`;
+    }
+
+    res.json({ reply });
+  } catch (error) {
+    console.error('❌ AI Error:', error);
+    res.status(500).json({ error: 'Gagal generate AI' });
+  }
+});
+
+// ==========================================
+// ROUTE 4: The Marketer (Broadcast & Sequence)
+// ==========================================
+app.post('/api/marketer/broadcast', async (req, res) => {
+  const { message, targets, userId } = req.body;
+
+  try {
+    console.log(`📢 Memulai Broadcast untuk ${targets.length} kontak...`);
+    
+    // Antrean pengiriman massal
+    targets.forEach((target, index) => {
+      setTimeout(() => {
+        console.log(`➡️ Mengirim ke ${target.phone}: ${message}`);
+        // Kirim via WA API di sini
+      }, index * 1000); // Jeda 1 detik antar pesan hulu agar tidak kena ban
+    });
+
+    res.json({ status: 'Broadcast started' });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal memulai broadcast' });
+  }
+});
+
+// ==========================================
+// ROUTE 5: Uji Coba Server Nyala (Ping)
 // ==========================================
 app.get('/', (req, res) => {
-  res.send('Aksena Engine V3 is Running! 🚀');
+  res.send('Aksena.id Engine V3 is Running! 🚀');
 });
 
 const PORT = process.env.PORT || 3000;

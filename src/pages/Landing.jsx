@@ -27,7 +27,7 @@ export default function Landing() {
       <nav className="landing-nav">
         <div className="landing-nav-logo">
           <div className="landing-nav-icon"><Zap size={16} /></div>
-          <span>AKSENA</span>
+          <span>AKSENA.ID</span>
         </div>
         <div className="landing-nav-links">
           <a href="#features">Features</a>
@@ -78,7 +78,7 @@ export default function Landing() {
       {/* Features / Layers */}
       <section className="landing-features" id="features">
         <div className="section-header">
-          <h2>Arsitektur 6-Layer <span className="gradient-text">Aksena</span></h2>
+          <h2>Arsitektur 6-Layer <span className="gradient-text">Aksena.id</span></h2>
           <p>Dari chat pelanggan ke insight bisnis — terotomasi penuh.</p>
         </div>
         <div className="features-grid">

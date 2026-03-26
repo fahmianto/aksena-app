@@ -43,7 +43,7 @@ export default function Login() {
         <div className="auth-logo">
           <div className="auth-logo-icon"><Zap size={20} /></div>
           <div>
-            <div className="auth-logo-name">AKSENA</div>
+            <div className="auth-logo-name">AKSENA.ID</div>
             <div className="auth-logo-sub">Intelligence Platform</div>
           </div>
         </div>

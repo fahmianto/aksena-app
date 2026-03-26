@@ -28,7 +28,7 @@ export default function Header() {
     '/settings':   { title: 'Settings',        sub: 'Kelola profil dan akun Anda' },
   };
 
-  const info = pageTitlesWithName[pathname] || { title: 'Aksena', sub: '' };
+  const info = pageTitlesWithName[pathname] || { title: 'Aksena.id', sub: '' };
 
   return (
     <header className="app-header">
