@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, MessageSquare, Bot, Package,
-  CreditCard, BarChart3, Settings, Zap, Brain
+  CreditCard, BarChart3, Settings, Zap, Brain, LifeBuoy, Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/sidebar.css';
@@ -14,6 +14,8 @@ const navItems = [
   { path: '/manager',   icon: Package,        label: 'The Manager',  sub: 'Inventory', allowedRoles: ['super_admin', 'owner', 'manager'] },
   { path: '/collector', icon: CreditCard,     label: 'The Collector',sub: 'Payments', allowedRoles: ['super_admin', 'owner', 'manager'] },
   { path: '/compass',   icon: BarChart3,      label: 'Market Compass', sub: 'Big Data 🔒', allowedRoles: ['super_admin', 'owner'] },
+  { path: '/asl',       icon: LifeBuoy,       label: 'Rescue My Money',sub: 'Smart Liquidation', allowedRoles: ['super_admin', 'owner', 'manager'] },
+  { path: '/leads',     icon: Users,          label: 'Lead Pipeline',  sub: 'Internal CRM', allowedRoles: ['super_admin'] },
 ];
 
 export default function Sidebar() {

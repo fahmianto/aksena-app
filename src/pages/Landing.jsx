@@ -101,6 +101,56 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Lead Capture Form */}
+      <section className="landing-demo" id="demo" style={{ padding: '80px 20px', background: 'rgba(0,212,255,0.03)', borderTop: '1px solid var(--color-border)' }}>
+        <div className="section-header" style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h2>Tertarik Mencoba <span className="gradient-text">Aksena.id</span>?</h2>
+          <p>Tinggalkan kontak Anda, tim kami akan memberikan demo eksklusif.</p>
+        </div>
+        <div className="card" style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <form className="auth-form" onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+              name: formData.get('name'),
+              email: formData.get('email'),
+              phone: formData.get('phone'),
+              business: formData.get('business'),
+              source: 'landing_demo',
+              stage: 'LEAD'
+            };
+            try {
+              const { createLead } = await import('../services/leadService');
+              await createLead(data);
+              alert('Terima kasih! Tim Aksena akan segera menghubungi Anda di WhatsApp. 🚀');
+              e.target.reset();
+            } catch (err) {
+              alert('Gagal mengirim data. Coba lagi nanti.');
+            }
+          }}>
+            <div className="form-group">
+              <label className="form-label">Nama Lengkap</label>
+              <input className="form-input" name="name" type="text" placeholder="Budi Santoso" required />
+            </div>
+            <div className="form-group" style={{ marginTop: '16px' }}>
+              <label className="form-label">Nama Bisnis</label>
+              <input className="form-input" name="business" type="text" placeholder="Toko Maju Jaya" required />
+            </div>
+            <div className="form-group" style={{ marginTop: '16px' }}>
+              <label className="form-label">Nomor WhatsApp</label>
+              <input className="form-input" name="phone" type="text" placeholder="628123456789" required />
+            </div>
+            <div className="form-group" style={{ marginTop: '16px' }}>
+              <label className="form-label">Email</label>
+              <input className="form-input" name="email" type="email" placeholder="budi@email.com" required />
+            </div>
+            <button type="submit" className="btn btn-primary w-full" style={{ marginTop: '24px', justifyContent: 'center' }}>
+              Minta Demo Sekarang
+            </button>
+          </form>
+        </div>
+      </section>
+
       {/* CTA Footer */}
       <section className="landing-cta-section">
         <Globe size={40} color="var(--color-accent)" />
@@ -109,6 +159,7 @@ export default function Landing() {
           Daftar Sekarang <ArrowRight size={16} />
         </Link>
       </section>
+
     </div>
   );
 }

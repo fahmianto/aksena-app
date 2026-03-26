@@ -12,6 +12,8 @@ import Manager from '../pages/Manager';
 import Collector from '../pages/Collector';
 import Compass from '../pages/Compass';
 import Settings from '../pages/Settings';
+import RescueMyMoney from '../pages/RescueMyMoney';
+import LeadPipeline from '../pages/LeadPipeline';
 
 import RoleGuard from '../components/RoleGuard';
 
@@ -34,6 +36,8 @@ const router = createBrowserRouter([
       { path: '/collector',  element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><Collector /></RoleGuard> },
       { path: '/compass',    element: <RoleGuard allowedRoles={['super_admin', 'owner']}><Compass /></RoleGuard> },
       { path: '/settings',   element: <RoleGuard allowedRoles={['super_admin', 'owner']}><Settings /></RoleGuard> },
+      { path: '/asl',        element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><RescueMyMoney /></RoleGuard> },
+      { path: '/leads',      element: <RoleGuard allowedRoles={['super_admin']}><LeadPipeline /></RoleGuard> },
     ],
   },
 ]);
