@@ -60,6 +60,25 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
       console.log(`📩 Pesan Masuk dari ${senderPhone}: ${textMessage}`);
 
+      const cleanedText = textMessage.trim().toUpperCase();
+      if (cleanedText === 'UNSUB' || cleanedText === 'STOP') {
+        if (db) {
+          const snap = await db.collection('aksena_leads').get(); 
+          let foundDoc = null;
+          snap.forEach(d => {
+             const data = d.data();
+             if (data.phone === senderPhone || data.phone === senderPhone.replace(/^62/, '0')) {
+                 foundDoc = d;
+             }
+          });
+          if (foundDoc) {
+             await foundDoc.ref.update({ unsubscribed: true });
+             console.log(`🚫 Lead ${foundDoc.data().name} berhasil di unsubscribed dari promo.`);
+             // Boleh kirim balas WA: "Anda telah berhenti berlangganan promo."
+          }
+        }
+      }
+
       // TODO: Simpan `textMessage` ke Firestore 'conversations' & 'messages'
       // agar sinkron ke The Harvester Aksena.
 
@@ -183,24 +202,61 @@ app.post('/api/ai/generate', async (req, res) => {
 });
 
 // ==========================================
+// ROUTE 4b: AI Broadcast Copywriter
+// ==========================================
+app.post('/api/ai/copywriter', async (req, res) => {
+  const { topic } = req.body;
+  
+  // Dummy AI for local:
+  const suggestedCopy = `Halo Kak {{name}}! 👋\nAda kabar gembira dari Aksena nih.\n\nTerkait promo: *${topic}*!\n\nJangan lewatkan kesempatan spesial ini ya. Langsung balas pesan ini jika Kakak berminat atau ada pertanyaan.\n\nSalam hangat, Tim Aksena.`;
+  
+  res.json({ suggestion: suggestedCopy });
+});
+
+// ==========================================
 // ROUTE 4: The Marketer (Broadcast & Sequence)
 // ==========================================
 app.post('/api/marketer/broadcast', async (req, res) => {
-  const { message, targets, userId } = req.body;
+  const { message, audienceParams, userId } = req.body;
+
+  if(!db) return res.status(500).json({ error: 'DB not connected' });
 
   try {
-    console.log(`📢 Memulai Broadcast untuk ${targets.length} kontak...`);
-    
-    // Antrean pengiriman massal
-    targets.forEach((target, index) => {
-      setTimeout(() => {
-        console.log(`➡️ Mengirim ke ${target.phone}: ${message}`);
-        // Kirim via WA API di sini
-      }, index * 1000); // Jeda 1 detik antar pesan hulu agar tidak kena ban
+    let leadsQuery = db.collection('aksena_leads');
+    if (audienceParams && audienceParams.filterStage && audienceParams.filterStage !== 'ALL') {
+      leadsQuery = leadsQuery.where('stage', '==', audienceParams.filterStage);
+    }
+    const snap = await leadsQuery.get();
+    const targets = [];
+    snap.forEach(d => {
+       const data = d.data();
+       if(data.unsubscribed !== true && data.phone) {
+         targets.push({ id: d.id, ...data });
+       }
     });
 
-    res.json({ status: 'Broadcast started' });
+    console.log(`📢 Memulai Broadcast Thematic untuk ${targets.length} kontak...`);
+    
+    // Append Unsubscribe text
+    const finalMessageTemplate = message + '\n\n_Balas UNSUB untuk berhenti menerima pesan promo ini._';
+
+    targets.forEach((target, index) => {
+      setTimeout(() => {
+        let msg = finalMessageTemplate.replace(/\{\{name\}\}/g, target.name || target.businessName || 'Kak');
+        msg = msg.replace(/\{\{businessName\}\}/g, target.businessName || '');
+        console.log(`➡️ Mengirim Broadcast ke ${target.phone}`);
+
+        db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+            type: 'WA_BROADCAST',
+            message: msg,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }, index * 1000); // 1 sec delay to avoid rate limits
+    });
+
+    res.json({ status: 'Broadcast started', targetCount: targets.length });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Gagal memulai broadcast' });
   }
 });
@@ -312,25 +368,39 @@ app.post('/api/leads/nurture', async (req, res) => {
     }
 
     const leadData = docSnap.data();
+    const currentStep = leadData.nurtureStep || 0;
 
-    // Simulasi pengiriman pesan WA
-    const nurtureMessage = `Halo ${leadData.name || leadData.businessName}, terima kasih sudah tertarik dengan Aksena.id. Apakah ada yang bisa kami bantu terkait sistem Aksena?`;
-    console.log(`💬 [DRIP CAMPAIGN] Mengirim WA ke ${leadData.phone || 'Unknown'}: ${nurtureMessage}`);
+    // Ambil semua sequence aktif
+    const seqSnap = await db.collection('drip_sequences').where('isActive', '==', true).orderBy('step', 'asc').get();
+    const sequences = seqSnap.docs.map(d => d.data());
+
+    // Cari edukasi selanjutnya (tanpa peduli urusan delayDays, karena dipaksa / di-trigger manual)
+    const nextSeq = sequences.find(s => s.step > currentStep);
+
+    if (!nextSeq) {
+      return res.status(400).json({ error: 'Lead ini sudah menyelesaikan semua tahapan edukasi Drip Campaign yang tersedia.' });
+    }
+
+    let nurtureMessage = nextSeq.messageTemplate.replace(/\{\{name\}\}/g, leadData.name || leadData.businessName || 'Kak');
+    nurtureMessage = nurtureMessage.replace(/\{\{businessName\}\}/g, leadData.businessName || '');
+
+    console.log(`💬 [DRIP CAMPAIGN MANUAL] Mengirim WA Edukasi Ke-${nextSeq.step} kepada ${leadData.phone || 'Unknown'} - Pesan: ${nurtureMessage}`);
 
     // Update state lead
     await leadRef.update({
       stage: 'NURTURED',
+      nurtureStep: nextSeq.step,
       lastContactedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // Catat ke contact_history
     await db.collection('aksena_leads').doc(leadId).collection('contact_history').add({
-      type: 'WA_NURTURE',
+      type: `WA_NURTURE_STEP_${nextSeq.step}`,
       message: nurtureMessage,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    res.json({ success: true, message: 'Nurture message sent and stage updated' });
+    res.json({ success: true, message: `Pesan Edukasi Ke-${nextSeq.step} berhasil dikirim.` });
   } catch (error) {
     console.error('❌ Gagal memproses nurture:', error);
     res.status(500).json({ error: 'Terjadi kesalahan pada server' });
@@ -345,9 +415,17 @@ const runDripCampaign = async () => {
   if (!db) return;
 
   try {
+    // Ambil semua sequence aktif
+    const seqSnap = await db.collection('drip_sequences').where('isActive', '==', true).orderBy('step', 'asc').get();
+    if (seqSnap.empty) {
+      console.log('ℹ️ [DRIP] Tidak ada Drip Sequences yang aktif di database. Skip operasi.');
+      return;
+    }
+    const sequences = seqSnap.docs.map(d => d.data());
+
     const leadsRef = db.collection('aksena_leads');
-    // Cari lead dengan stage NEW
-    const snapshot = await leadsRef.where('stage', '==', 'NEW').get();
+    // Cari lead dengan stage NEW dan NURTURED untuk follow-up bertahap
+    const snapshot = await leadsRef.where('stage', 'in', ['NEW', 'NURTURED']).get();
     
     let nurturedCount = 0;
     const now = new Date();
@@ -364,25 +442,32 @@ const runDripCampaign = async () => {
         createdDate = new Date(createdDate);
       }
       
-      const diffTime = Math.abs(now - createdDate);
-      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      if (data.unsubscribed === true) return; // SKIP UNSUBSCRIBED
 
-      // Jika lead NEW sudah berumur >= 1 hari (24 jam), kita auto nurture
-      // Untuk testing, ubah >= 1 jadi >= 0 sementara atau panggil via API trigger
-      if (diffDays >= 1) {
-        const nurtureMessage = `Halo ${data.name || data.businessName}, kami melihat pendaftaran Anda di Aksena.id. Yuk lanjut diskusi via WA ini jika ada pertanyaan!`;
-        console.log(`🤖 [AUTO-DRIP] Mengirim follow up WA otomatis ke ${data.phone}: ${nurtureMessage}`);
+      const diffTime = Math.abs(now - createdDate);
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Pembulatan mutlak ke hari
+      const currentStep = data.nurtureStep || 0;
+
+      // Cari urutan pesan yang seharusnya dikirim (Step > currentStep DAN umurnya sudah >= delayDays)
+      const nextSeq = sequences.find(s => s.step > currentStep && diffDays >= s.delayDays);
+
+      if (nextSeq) {
+        let nurtureMessage = nextSeq.messageTemplate.replace(/\{\{name\}\}/g, data.name || data.businessName || 'Kak');
+        nurtureMessage = nurtureMessage.replace(/\{\{businessName\}\}/g, data.businessName || '');
+
+        console.log(`🤖 [AUTO-DRIP] Mengirim WA Edukasi Ke-${nextSeq.step} (H+${diffDays}) kepada ${data.phone || 'Unknown'}`);
 
         // Update doc
         batch.update(docSnap.ref, {
           stage: 'NURTURED',
+          nurtureStep: nextSeq.step,
           lastContactedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
         // Add history
         const historyRef = docSnap.ref.collection('contact_history').doc();
         batch.set(historyRef, {
-          type: 'WA_AUTO_NURTURE',
+          type: `WA_AUTO_NURTURE_STEP_${nextSeq.step}`,
           message: nurtureMessage,
           timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
@@ -393,9 +478,9 @@ const runDripCampaign = async () => {
 
     if (nurturedCount > 0) {
       await batch.commit();
-      console.log(`✅ [DRIP] Scan selesai. Berhasil auto-nurture ${nurturedCount} leads.`);
+      console.log(`✅ [DRIP] Scan selesai. Berhasil auto-nurture ${nurturedCount} pesan edukasi ke Leads.`);
     } else {
-      console.log('✅ [DRIP] Scan selesai. Belum ada lead baru yang perlu di-nurture hari ini.');
+      console.log('✅ [DRIP] Scan selesai. Tidak ada lead yang jadwalnya kena edukasi hari ini.');
     }
 
   } catch (error) {

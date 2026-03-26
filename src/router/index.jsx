@@ -14,6 +14,8 @@ import Compass from '../pages/Compass';
 import Settings from '../pages/Settings';
 import RescueMyMoney from '../pages/RescueMyMoney';
 import LeadPipeline from '../pages/LeadPipeline';
+import BroadcastCampaigns from '../pages/BroadcastCampaigns';
+import DripSettings from '../pages/DripSettings';
 
 import RoleGuard from '../components/RoleGuard';
 
@@ -38,6 +40,8 @@ const router = createBrowserRouter([
       { path: '/settings',   element: <RoleGuard allowedRoles={['super_admin', 'owner']}><Settings /></RoleGuard> },
       { path: '/asl',        element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><RescueMyMoney /></RoleGuard> },
       { path: '/leads',      element: <RoleGuard allowedRoles={['super_admin']}><LeadPipeline /></RoleGuard> },
+      { path: '/drip-settings', element: <RoleGuard allowedRoles={['super_admin']}><DripSettings /></RoleGuard> },
+      { path: '/campaigns',  element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><BroadcastCampaigns /></RoleGuard> },
     ],
   },
 ]);
