@@ -9,6 +9,8 @@ export default function BroadcastCampaigns() {
   const [topic, setTopic] = useState('');
   const [message, setMessage] = useState('');
   const [audienceStage, setAudienceStage] = useState('ALL');
+  const [sendType, setSendType] = useState('NOW'); // 'NOW' or 'SCHEDULED'
+  const [scheduledAt, setScheduledAt] = useState('');
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -46,8 +48,17 @@ export default function BroadcastCampaigns() {
       toast.error('Pesan broadcast tidak boleh kosong');
       return;
     }
+
+    if (sendType === 'SCHEDULED' && !scheduledAt) {
+      toast.error('Pilih tanggal dan jam penjadwalan terlebih dahulu');
+      return;
+    }
     
-    if (!window.confirm('Yakin ingin mendistribusikan Broadcast Promo ini secara massal?')) return;
+    const confirmMsg = sendType === 'NOW' 
+      ? 'Yakin ingin mendistribusikan Broadcast Promo ini secara massal SEKARANG?'
+      : `Yakin ingin MENJADWALKAN Broadcast Promo ini untuk ${new Date(scheduledAt).toLocaleString('id-ID')}?`;
+      
+    if (!window.confirm(confirmMsg)) return;
 
     setIsSending(true);
     const loadingToast = toast.loading('Sedang mengantrekan pengiriman massal ke server...');
@@ -59,16 +70,23 @@ export default function BroadcastCampaigns() {
         body: JSON.stringify({
           message,
           audienceParams: { filterStage: audienceStage },
-          userId: currentUser?.uid
+          userId: currentUser?.uid,
+          scheduledAt: sendType === 'SCHEDULED' ? scheduledAt : null
         })
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal memulai broadcast');
+      if (!res.ok) throw new Error(data.error || 'Gagal merespon broadcast');
       
-      toast.success(`🚀 Berhasil! Menembak ${data.targetCount || '?'} target audiens.`, { id: loadingToast, duration: 5000 });
+      const successMsg = sendType === 'NOW' 
+        ? `🚀 Berhasil! Menembak ${data.targetCount || '?'} target audiens.`
+        : `⏳ Berhasil! Broadcast dijadwalkan untuk dikirim nanti.`;
+        
+      toast.success(successMsg, { id: loadingToast, duration: 5000 });
       setTopic('');
       setMessage('');
+      setScheduledAt('');
+      setSendType('NOW');
     } catch (error) {
       toast.error(error.message, { id: loadingToast });
     } finally {
@@ -177,6 +195,46 @@ export default function BroadcastCampaigns() {
               </div>
             </div>
 
+            <div className="form-group" style={{ marginBottom: 24 }}>
+              <label>Opsi Pengiriman</label>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input 
+                    type="radio" 
+                    name="sendType" 
+                    value="NOW" 
+                    checked={sendType === 'NOW'} 
+                    onChange={() => setSendType('NOW')} 
+                  />
+                  <span>Kirim Sekarang</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input 
+                    type="radio" 
+                    name="sendType" 
+                    value="SCHEDULED" 
+                    checked={sendType === 'SCHEDULED'} 
+                    onChange={() => setSendType('SCHEDULED')} 
+                  />
+                  <span>Jadwalkan</span>
+                </label>
+              </div>
+
+              {sendType === 'SCHEDULED' && (
+                <div className="fade-in">
+                  <input 
+                    type="datetime-local" 
+                    className="form-input" 
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                  />
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 8 }}>
+                    Sistem akan mengirimkan pesan otomatis pada tanggal dan jam yang dipilih. Pastikan server nyala.
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button 
               className="btn btn-primary" 
               style={{ width: '100%', padding: 14, fontSize: 15, display: 'flex', justifyContent: 'center', gap: 8 }}
@@ -184,7 +242,7 @@ export default function BroadcastCampaigns() {
               disabled={isSending}
             >
               <Send size={18} />
-              {isSending ? 'Memproses Antrean...' : 'Broadcast Sekarang 🚀'}
+              {isSending ? 'Memproses Antrean...' : (sendType === 'NOW' ? 'Broadcast Sekarang 🚀' : 'Simpan Jadwal ⏳')}
             </button>
             <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--color-text-muted)', marginTop: 12 }}>
               Aman dari blokir. Pesan dikirim berurutan dengan jeda waktu aman.

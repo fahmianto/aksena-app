@@ -74,13 +74,65 @@ app.post('/webhook/whatsapp', async (req, res) => {
           if (foundDoc) {
              await foundDoc.ref.update({ unsubscribed: true });
              console.log(`🚫 Lead ${foundDoc.data().name} berhasil di unsubscribed dari promo.`);
-             // Boleh kirim balas WA: "Anda telah berhenti berlangganan promo."
+          }
+        }
+      } else {
+        // ==========================================
+        // THE CLOSER: AI Auto-Reply Engine
+        // ==========================================
+        if (db) {
+          const snap = await db.collection('aksena_leads').get(); 
+          let foundDoc = null;
+          snap.forEach(d => {
+             const data = d.data();
+             if (data.phone === senderPhone || data.phone === senderPhone.replace(/^62/, '0')) {
+                 foundDoc = d;
+             }
+          });
+
+          if (foundDoc) {
+             const lead = foundDoc.data();
+             const leadRef = foundDoc.ref;
+             
+             console.log(`🧠 [The Closer AI] Menganalisa pesan dari ${lead.name || senderPhone}...`);
+             
+             // 1. Catat Pesan Masuk (INBOUND)
+             await leadRef.collection('contact_history').add({
+                type: 'WA_INBOUND',
+                message: textMessage,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+             });
+
+             // 2. Mock AI Logic (Mendeteksi Intent & Generate Reply)
+             const lowerText = textMessage.toLowerCase();
+             let aiReply = '';
+             
+             if (lowerText.includes('stok') || lowerText.includes('selisih') || lowerText.includes('gudang')) {
+                aiReply = `Wah wajar banget Kak ${lead.name}, ngitung stok manual emang rawan selisih dan bikin capek tim. Di Aksena, kita punya fitur khusus namanya "Rescue My Money" yang nggak cuma nyatet stok otomatis, tapi juga ngelacak dead-stock pelan-pelan jadi cash. Mau saya tunjukin simulasi cara kerjanya?`;
+             } else if (lowerText.includes('sales') || lowerText.includes('sepi') || lowerText.includes('leads')) {
+                aiReply = `Saya ngerti banget rasanya Kak ${lead.name}. Nyari leads itu mahal, kalau sampai numpuk dan lambat di-follow up jadinya boncos. Kakak perhatikan gak, cara kita ngobrol hari ini udah 100% pakai sistem Drip Auto-Reply Aksena? Ini yang akan bikin closing bisnis Kakak naik drastis. Penasaran mau coba pasang di bisnis Kakak?`;
+             } else if (lowerText.includes('harga') || lowerText.includes('berapa') || lowerText.includes('price')) {
+                aiReply = `Untuk investasi Aksena jauh lebih murah dibanding UMR 1 CS Kak, dan sistemnya bisa kerja 24/7 tanpa cuti! 😂 Kalau Kakak berminat, saya bisa kasih akses harga Spesial Early Adopter yang di-lock seumur hidup. Mau masuk whitelist-nya?`;
+             } else {
+                aiReply = `Hmm menarik banget poinnya Kak ${lead.name}. Kalau boleh tahu lebih dalam, kendala operasional apa sih yang paling menguras waktu/tenaga Kakak di ${lead.businessName || 'bisnis'} saat ini? Biar saya coba kasih solusi yang spesifik.`;
+             }
+
+             // 3. Jeda buatan agar terlihat natural seperti manusia mengetik
+             setTimeout(async () => {
+                console.log(`🤖💬 [The Closer AI] Merespon ke ${lead.name}: "${aiReply}"`);
+                
+                // 4. Catat Pesan Keluar (AI OUTBOUND)
+                await leadRef.collection('contact_history').add({
+                  type: 'WA_OUTBOUND_AI',
+                  message: aiReply,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+             }, 2500);
+          } else {
+             console.log(`⚠️ Nomor ${senderPhone} tidak terdaftar di sistem. Pesan diabaikan.`);
           }
         }
       }
-
-      // TODO: Simpan `textMessage` ke Firestore 'conversations' & 'messages'
-      // agar sinkron ke The Harvester Aksena.
 
       res.sendStatus(200); 
     } else {
@@ -217,7 +269,7 @@ app.post('/api/ai/copywriter', async (req, res) => {
 // ROUTE 4: The Marketer (Broadcast & Sequence)
 // ==========================================
 app.post('/api/marketer/broadcast', async (req, res) => {
-  const { message, audienceParams, userId } = req.body;
+  const { message, audienceParams, userId, scheduledAt } = req.body;
 
   if(!db) return res.status(500).json({ error: 'DB not connected' });
 
@@ -234,6 +286,21 @@ app.post('/api/marketer/broadcast', async (req, res) => {
          targets.push({ id: d.id, ...data });
        }
     });
+
+    if (scheduledAt && new Date(scheduledAt).getTime() > Date.now()) {
+      // B. JADWALKAN BROADCAST
+      await db.collection('scheduled_broadcasts').add({
+        message,
+        audienceParams,
+        userId,
+        targets,
+        scheduledAt: new Date(scheduledAt),
+        status: 'PENDING',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`⏳ Broadcast dijadwalkan untuk ${targets.length} kontak pada ${new Date(scheduledAt).toLocaleString('id-ID')}`);
+      return res.json({ status: 'Broadcast Scheduled', targetCount: targets.length });
+    }
 
     console.log(`📢 Memulai Broadcast Thematic untuk ${targets.length} kontak...`);
     
@@ -496,6 +563,50 @@ app.post('/api/drip/trigger-scan', async (req, res) => {
   await runDripCampaign();
   res.json({ message: 'Auto-Drip Campaign scan completed manually!' });
 });
+
+// ==========================================
+// ROUTE 9: Scheduled Broadcast Cron Job (Setiap Menit)
+// ==========================================
+const runScheduledBroadcasts = async () => {
+  if (!db) return;
+  try {
+    const now = new Date();
+    const scheduledRef = db.collection('scheduled_broadcasts');
+    // Ambil semua yang PENDING dan jadwalnya sudah lewat atau sama dengan SEKARANG
+    const snap = await scheduledRef.where('status', '==', 'PENDING').where('scheduledAt', '<=', now).get();
+    
+    if (snap.empty) return;
+
+    snap.forEach(async (doc) => {
+      const job = doc.data();
+      console.log(`🚀 [CRON BROADCAST] Mengeksekusi jadwal broadcast ID: ${doc.id}`);
+      
+      const { message, targets } = job;
+      const finalMessageTemplate = message + '\n\n_Balas UNSUB untuk berhenti menerima pesan promo ini._';
+      
+      targets.forEach((target, i) => {
+        setTimeout(() => {
+          let msg = finalMessageTemplate.replace(/\{\{name\}\}/g, target.name || target.businessName || 'Kak');
+          msg = msg.replace(/\{\{businessName\}\}/g, target.businessName || '');
+          console.log(`➡️ [SCHEDULED] Mengirim ke ${target.phone}`);
+
+          db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+              type: 'WA_BROADCAST',
+              message: msg,
+              timestamp: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }, i * 1000); // delay aman 1 detik
+      });
+
+      // Tandai Selesai
+      await doc.ref.update({ status: 'COMPLETED', executedAt: admin.firestore.FieldValue.serverTimestamp() });
+    });
+  } catch(error) {
+    console.error('❌ Gagal menjalankan Scheduled Broadcasts:', error);
+  }
+};
+
+cron.schedule('* * * * *', runScheduledBroadcasts);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

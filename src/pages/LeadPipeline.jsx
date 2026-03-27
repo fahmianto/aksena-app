@@ -11,11 +11,13 @@ import {
   STAGE_META 
 } from '../services/leadService';
 import toast from 'react-hot-toast';
+import ChatHistoryModal from '../components/ChatHistoryModal';
 
 export default function LeadPipeline() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeChatLead, setActiveChatLead] = useState(null);
 
   useEffect(() => {
     const unsub = subscribeToLeads((data) => {
@@ -133,7 +135,15 @@ export default function LeadPipeline() {
                     <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>{lead.name}</div>
                     
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                      {lead.phone && <div title={lead.phone} style={{ color: 'var(--color-success)' }}><MessageSquare size={14} /></div>}
+                      {lead.phone && (
+                        <div 
+                           title="Lihat Harvester Log (The Closer AI)" 
+                           style={{ color: 'var(--color-success)', cursor: 'pointer' }}
+                           onClick={() => setActiveChatLead(lead)}
+                        >
+                          <MessageSquare size={14} />
+                        </div>
+                      )}
                       <div title={lead.email} style={{ color: 'var(--color-info)' }}><Mail size={14} /></div>
                     </div>
 
@@ -173,6 +183,13 @@ export default function LeadPipeline() {
           );
         })}
       </div>
+
+      {activeChatLead && (
+        <ChatHistoryModal 
+          lead={activeChatLead} 
+          onClose={() => setActiveChatLead(null)} 
+        />
+      )}
     </div>
   );
 }

@@ -90,3 +90,17 @@ export async function getLead(leadId) {
   const snap = await getDoc(doc(db, LEADS_COL, leadId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
+
+/**
+ * Real-time listener for a lead's contact history.
+ */
+export function subscribeToContactHistory(leadId, callback) {
+  const q = query(
+    collection(db, LEADS_COL, leadId, 'contact_history'), 
+    orderBy('timestamp', 'asc')
+  );
+  return onSnapshot(q, (snap) => {
+    const history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(history);
+  });
+}
