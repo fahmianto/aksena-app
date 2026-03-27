@@ -1,6 +1,7 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import AciChatWidget from '../AciChatWidget';
 import '../../styles/layout.css';
 
 export default function AppLayout() {
@@ -12,6 +13,7 @@ export default function AppLayout() {
         <main className="app-content">
           <Outlet />
         </main>
+        <AciChatWidget />
       </div>
     </div>
   );

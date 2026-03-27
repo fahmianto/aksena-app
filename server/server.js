@@ -3,7 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
-
+const { handleIncomingChat } = require('./aiEngine');
+const { handleOwnerChat } = require('./aciEngine');
 // ==========================================
 // NODEMAILER SETUP (Mailketing)
 // ==========================================
@@ -103,6 +104,19 @@ app.post('/webhook/whatsapp', async (req, res) => {
 
       console.log(`📩 Pesan Masuk dari ${senderPhone}: ${textMessage}`);
 
+      // [ACI] Aksena Conversational Intelligence (Jalur Khusus Owner)
+      if (process.env.OWNER_PHONE && (senderPhone === process.env.OWNER_PHONE || senderPhone === process.env.OWNER_PHONE.replace(/^62/, '0'))) {
+          // ACI menangani pesan
+          const aciReply = await handleOwnerChat(textMessage, senderPhone, db);
+          
+          // Jeda simulasi ketik (Bila punya Meta API aktif, kirim balik pesannya disini)
+          setTimeout(() => {
+              console.log(`👔💬 [ACI Master Brain] Merespon ke CEO: "${aciReply}"`);
+          }, 2000);
+          
+          return res.sendStatus(200); // Stop eksekusi agar tidak masuk ke The Closer
+      }
+
       const cleanedText = textMessage.trim().toUpperCase();
       if (cleanedText === 'UNSUB' || cleanedText === 'STOP') {
         if (db) {
@@ -137,40 +151,8 @@ app.post('/webhook/whatsapp', async (req, res) => {
              const lead = foundDoc.data();
              const leadRef = foundDoc.ref;
              
-             console.log(`🧠 [The Closer AI] Menganalisa pesan dari ${lead.name || senderPhone}...`);
-             
-             // 1. Catat Pesan Masuk (INBOUND)
-             await leadRef.collection('contact_history').add({
-                type: 'WA_INBOUND',
-                message: textMessage,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
-             });
-
-             // 2. Mock AI Logic (Mendeteksi Intent & Generate Reply)
-             const lowerText = textMessage.toLowerCase();
-             let aiReply = '';
-             
-             if (lowerText.includes('stok') || lowerText.includes('selisih') || lowerText.includes('gudang')) {
-                aiReply = `Wah wajar banget Kak ${lead.name}, ngitung stok manual emang rawan selisih dan bikin capek tim. Di Aksena, kita punya fitur khusus namanya "Rescue My Money" yang nggak cuma nyatet stok otomatis, tapi juga ngelacak dead-stock pelan-pelan jadi cash. Mau saya tunjukin simulasi cara kerjanya?`;
-             } else if (lowerText.includes('sales') || lowerText.includes('sepi') || lowerText.includes('leads')) {
-                aiReply = `Saya ngerti banget rasanya Kak ${lead.name}. Nyari leads itu mahal, kalau sampai numpuk dan lambat di-follow up jadinya boncos. Kakak perhatikan gak, cara kita ngobrol hari ini udah 100% pakai sistem Drip Auto-Reply Aksena? Ini yang akan bikin closing bisnis Kakak naik drastis. Penasaran mau coba pasang di bisnis Kakak?`;
-             } else if (lowerText.includes('harga') || lowerText.includes('berapa') || lowerText.includes('price')) {
-                aiReply = `Untuk investasi Aksena jauh lebih murah dibanding UMR 1 CS Kak, dan sistemnya bisa kerja 24/7 tanpa cuti! 😂 Kalau Kakak berminat, saya bisa kasih akses harga Spesial Early Adopter yang di-lock seumur hidup. Mau masuk whitelist-nya?`;
-             } else {
-                aiReply = `Hmm menarik banget poinnya Kak ${lead.name}. Kalau boleh tahu lebih dalam, kendala operasional apa sih yang paling menguras waktu/tenaga Kakak di ${lead.businessName || 'bisnis'} saat ini? Biar saya coba kasih solusi yang spesifik.`;
-             }
-
-             // 3. Jeda buatan agar terlihat natural seperti manusia mengetik
-             setTimeout(async () => {
-                console.log(`🤖💬 [The Closer AI] Merespon ke ${lead.name}: "${aiReply}"`);
-                
-                // 4. Catat Pesan Keluar (AI OUTBOUND)
-                await leadRef.collection('contact_history').add({
-                  type: 'WA_OUTBOUND_AI',
-                  message: aiReply,
-                  timestamp: admin.firestore.FieldValue.serverTimestamp()
-                });
-             }, 2500);
+             // Meneruskan pesan ke Multi-Agent Router (aiEngine.js)
+             await handleIncomingChat(textMessage, lead, leadRef, db);
           } else {
              console.log(`⚠️ Nomor ${senderPhone} tidak terdaftar di sistem. Pesan diabaikan.`);
           }
@@ -767,6 +749,33 @@ const runScheduledBroadcasts = async () => {
 };
 
 cron.schedule('* * * * *', runScheduledBroadcasts);
+
+// ==========================================
+// ROUTE ACI: Dashboard Chat AI 
+// ==========================================
+app.post('/api/aci/chat', async (req, res) => {
+  const { message, role } = req.body;
+  if (!message) return res.status(400).json({ error: 'Message required' });
+
+  try {
+      if (role === 'superadmin') {
+          // Level Owner: Punya akses penuh Function Calling
+          const reply = await handleOwnerChat(message, 'DASHBOARD_CEO', db);
+          return res.json({ reply, role: 'superadmin' });
+      } else {
+          // Level Admin: Dibatasi aksesnya
+          const lowerMsg = message.toLowerCase();
+          if (lowerMsg.includes('omzet') || lowerMsg.includes('profit') || lowerMsg.includes('uang')) {
+              return res.json({ reply: 'Maaf Kak, Aksena tidak diizinkan membuka data finansial/keuangan toko kepada selain level Owner. Ada hal lain yang bisa Aksena bantu carikan?', role });
+          }
+          const reply = await handleOwnerChat(message + " [PENTING: Jawab sebagai admin staf, JANGAN sebutkan angka omzet, modal, profit, atau HPP. Fokus ke data lead dan operasional.]", 'DASHBOARD_ADMIN', db);
+          return res.json({ reply, role });
+      }
+  } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'ACI offline' });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
