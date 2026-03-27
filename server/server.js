@@ -2,6 +2,49 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
+const nodemailer = require('nodemailer');
+
+// ==========================================
+// NODEMAILER SETUP (Mailketing)
+// ==========================================
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.mailketing.co.id',
+  port: process.env.SMTP_PORT || 587,
+  secure: false, // TLS
+  auth: {
+    user: process.env.SMTP_USER || 'dummy',
+    pass: process.env.SMTP_PASS || 'dummy'
+  }
+});
+// Verify connection (non-blocking)
+transporter.verify((error, success) => {
+  if (error) {
+    console.warn('⚠️ SMTP terputus/Belum disetting di .env. Akan menggunakan console.log untuk email (Mock Mode).');
+  } else {
+    console.log('📧 SMTP Mailketing Ready!');
+  }
+});
+
+// Helper Function: Kirim Email (HTML)
+const sendEmail = async (to, subject, htmlContent) => {
+  if (!process.env.SMTP_PASS) {
+    console.log(`[MOCK EMAIL] Mengirim Email ke ${to} | Subjek: ${subject}`);
+    return true;
+  }
+  try {
+    await transporter.sendMail({
+      from: '"Aksena System" <no-reply@aksena.id>',
+      to,
+      subject,
+      html: htmlContent
+    });
+    return true;
+  } catch (error) {
+    console.error(`Gagal mengirim email ke ${to}:`, error);
+    return false;
+  }
+};
+
 
 const admin = require('firebase-admin');
 // CATATAN: Bro perlu menaruh file serviceAccountKey.json di folder server/ ini
@@ -269,7 +312,7 @@ app.post('/api/ai/copywriter', async (req, res) => {
 // ROUTE 4: The Marketer (Broadcast & Sequence)
 // ==========================================
 app.post('/api/marketer/broadcast', async (req, res) => {
-  const { message, audienceParams, userId, scheduledAt } = req.body;
+  const { message, audienceParams, userId, scheduledAt, channel = 'WA', subject = 'Promo Aksena Spesial' } = req.body;
 
   if(!db) return res.status(500).json({ error: 'DB not connected' });
 
@@ -282,7 +325,13 @@ app.post('/api/marketer/broadcast', async (req, res) => {
     const targets = [];
     snap.forEach(d => {
        const data = d.data();
-       if(data.unsubscribed !== true && data.phone) {
+       if(data.unsubscribed !== true) {
+         // Filter based on channel availability
+         if (channel === 'WA' && !data.phone) return;
+         if (channel === 'EMAIL' && !data.email) return;
+         if (channel === 'SMART' && !data.phone && !data.email) return;
+         if (channel === 'BOTH' && !data.phone && !data.email) return;
+         
          targets.push({ id: d.id, ...data });
        }
     });
@@ -291,6 +340,8 @@ app.post('/api/marketer/broadcast', async (req, res) => {
       // B. JADWALKAN BROADCAST
       await db.collection('scheduled_broadcasts').add({
         message,
+        subject,
+        channel,
         audienceParams,
         userId,
         targets,
@@ -304,20 +355,57 @@ app.post('/api/marketer/broadcast', async (req, res) => {
 
     console.log(`📢 Memulai Broadcast Thematic untuk ${targets.length} kontak...`);
     
-    // Append Unsubscribe text
-    const finalMessageTemplate = message + '\n\n_Balas UNSUB untuk berhenti menerima pesan promo ini._';
+    const finalMessageTemplate = message + (channel === 'EMAIL' ? '<br><br><i>Balas UNSUB untuk berhenti</i>' : '\n\n_Balas UNSUB untuk berhenti menerima pesan promo ini._');
 
     targets.forEach((target, index) => {
-      setTimeout(() => {
+      setTimeout(async () => {
         let msg = finalMessageTemplate.replace(/\{\{name\}\}/g, target.name || target.businessName || 'Kak');
         msg = msg.replace(/\{\{businessName\}\}/g, target.businessName || '');
-        console.log(`➡️ Mengirim Broadcast ke ${target.phone}`);
+        
+        if (channel === 'BOTH') {
+           if (target.email) {
+             console.log(`📧 Mengirim Broadcast Email ke ${target.email}`);
+             await sendEmail(target.email, subject, msg);
+             db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                type: 'EMAIL_BROADCAST',
+                subject: subject,
+                message: msg,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+             });
+           }
+           if (target.phone) {
+             console.log(`➡️ Mengirim Broadcast WA ke ${target.phone}`);
+             db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                 type: 'WA_BROADCAST',
+                 message: msg,
+                 timestamp: admin.firestore.FieldValue.serverTimestamp()
+             });
+           }
+        } else {
+           let actualChannel = channel;
+           // Smart Routing: Prioritaskan Email jika ada
+           if (channel === 'SMART') {
+             actualChannel = target.email ? 'EMAIL' : 'WA';
+           }
 
-        db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
-            type: 'WA_BROADCAST',
-            message: msg,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
+           if (actualChannel === 'EMAIL') {
+              console.log(`📧 Mengirim Broadcast Email ke ${target.email}`);
+              await sendEmail(target.email, subject, msg);
+              db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                 type: 'EMAIL_BROADCAST',
+                 subject: subject,
+                 message: msg,
+                 timestamp: admin.firestore.FieldValue.serverTimestamp()
+              });
+           } else {
+              console.log(`➡️ Mengirim Broadcast WA ke ${target.phone}`);
+              db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                  type: 'WA_BROADCAST',
+                  message: msg,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp()
+              });
+           }
+        }
       }, index * 1000); // 1 sec delay to avoid rate limits
     });
 
@@ -451,7 +539,34 @@ app.post('/api/leads/nurture', async (req, res) => {
     let nurtureMessage = nextSeq.messageTemplate.replace(/\{\{name\}\}/g, leadData.name || leadData.businessName || 'Kak');
     nurtureMessage = nurtureMessage.replace(/\{\{businessName\}\}/g, leadData.businessName || '');
 
-    console.log(`💬 [DRIP CAMPAIGN MANUAL] Mengirim WA Edukasi Ke-${nextSeq.step} kepada ${leadData.phone || 'Unknown'} - Pesan: ${nurtureMessage}`);
+    // Omnichannel Dispatch Logic
+    const hasEmail = Boolean(leadData.email);
+    const hasWa = Boolean(leadData.phone);
+    let usedChannel = 'WA';
+
+    // Apabila memiliki email, ubah rute menjadi format email
+    if (hasEmail) {
+      usedChannel = 'EMAIL';
+      const emailSubject = `Tips Bisnis Aksena - Edukasi #${nextSeq.step}`;
+      const emailHtml = nurtureMessage.replace(/\n/g, '<br/>'); // Convert text to basic HTML break
+      
+      console.log(`📧 [DRIP MANUAL] Mengirim Email Edukasi Ke-${nextSeq.step} kepada ${leadData.email}`);
+      await sendEmail(leadData.email, emailSubject, emailHtml);
+      
+      await db.collection('aksena_leads').doc(leadId).collection('contact_history').add({
+        type: `EMAIL_NURTURE`,
+        subject: emailSubject,
+        message: emailHtml,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else if (hasWa) {
+      console.log(`💬 [DRIP MANUAL] Mengirim WA Edukasi Ke-${nextSeq.step} kepada ${leadData.phone || 'Unknown'}`);
+      await db.collection('aksena_leads').doc(leadId).collection('contact_history').add({
+        type: `WA_NURTURE`,
+        message: nurtureMessage,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
 
     // Update state lead
     await leadRef.update({
@@ -460,14 +575,7 @@ app.post('/api/leads/nurture', async (req, res) => {
       lastContactedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // Catat ke contact_history
-    await db.collection('aksena_leads').doc(leadId).collection('contact_history').add({
-      type: `WA_NURTURE_STEP_${nextSeq.step}`,
-      message: nurtureMessage,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    res.json({ success: true, message: `Pesan Edukasi Ke-${nextSeq.step} berhasil dikirim.` });
+    res.json({ success: true, message: `Pesan Edukasi Ke-${nextSeq.step} berhasil dikirim via ${usedChannel}.` });
   } catch (error) {
     console.error('❌ Gagal memproses nurture:', error);
     res.status(500).json({ error: 'Terjadi kesalahan pada server' });
@@ -522,21 +630,36 @@ const runDripCampaign = async () => {
         let nurtureMessage = nextSeq.messageTemplate.replace(/\{\{name\}\}/g, data.name || data.businessName || 'Kak');
         nurtureMessage = nurtureMessage.replace(/\{\{businessName\}\}/g, data.businessName || '');
 
-        console.log(`🤖 [AUTO-DRIP] Mengirim WA Edukasi Ke-${nextSeq.step} (H+${diffDays}) kepada ${data.phone || 'Unknown'}`);
+        const hasEmail = Boolean(data.email);
+        
+        if (hasEmail) {
+          const emailSubject = `Update Aksena - Tips #${nextSeq.step}`;
+          const emailHtml = nurtureMessage.replace(/\n/g, '<br/>');
+          console.log(`📧 [AUTO-DRIP] Mengirim Email Edukasi Ke-${nextSeq.step} (H+${diffDays}) kepada ${data.email}`);
+          sendEmail(data.email, emailSubject, emailHtml); // Async without await so it doesn't block batching
+          
+          const historyRef = docSnap.ref.collection('contact_history').doc();
+          batch.set(historyRef, {
+            type: `EMAIL_NURTURE`,
+            subject: emailSubject,
+            message: emailHtml,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+          });
+        } else if (data.phone) {
+          console.log(`🤖 [AUTO-DRIP] Mengirim WA Edukasi Ke-${nextSeq.step} (H+${diffDays}) kepada ${data.phone}`);
+          const historyRef = docSnap.ref.collection('contact_history').doc();
+          batch.set(historyRef, {
+            type: `WA_NURTURE`,
+            message: nurtureMessage,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
 
         // Update doc
         batch.update(docSnap.ref, {
           stage: 'NURTURED',
           nurtureStep: nextSeq.step,
           lastContactedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Add history
-        const historyRef = docSnap.ref.collection('contact_history').doc();
-        batch.set(historyRef, {
-          type: `WA_AUTO_NURTURE_STEP_${nextSeq.step}`,
-          message: nurtureMessage,
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
 
         nurturedCount++;
@@ -581,20 +704,57 @@ const runScheduledBroadcasts = async () => {
       const job = doc.data();
       console.log(`🚀 [CRON BROADCAST] Mengeksekusi jadwal broadcast ID: ${doc.id}`);
       
-      const { message, targets } = job;
-      const finalMessageTemplate = message + '\n\n_Balas UNSUB untuk berhenti menerima pesan promo ini._';
+      const { message, targets, channel = 'WA', subject = 'Promo Aksena Spesial' } = job;
+      const finalMessageTemplate = message + (channel === 'EMAIL' ? '<br><br><i>Balas UNSUB untuk berhenti</i>' : '\n\n_Balas UNSUB untuk berhenti menerima pesan promo ini._');
       
       targets.forEach((target, i) => {
-        setTimeout(() => {
+        setTimeout(async () => {
           let msg = finalMessageTemplate.replace(/\{\{name\}\}/g, target.name || target.businessName || 'Kak');
           msg = msg.replace(/\{\{businessName\}\}/g, target.businessName || '');
-          console.log(`➡️ [SCHEDULED] Mengirim ke ${target.phone}`);
+          
+          if (channel === 'BOTH') {
+             if (target.email) {
+               console.log(`📧 [SCHEDULED] Mengirim Email ke ${target.email}`);
+               await sendEmail(target.email, subject, msg);
+               db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                  type: 'EMAIL_BROADCAST',
+                  subject: subject,
+                  message: msg,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp()
+               });
+             }
+             if (target.phone) {
+               console.log(`➡️ [SCHEDULED] Mengirim WA ke ${target.phone}`);
+               db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                  type: 'WA_BROADCAST',
+                  message: msg,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp()
+               });
+             }
+          } else {
+             let actualChannel = channel;
+             if (channel === 'SMART') {
+               actualChannel = target.email ? 'EMAIL' : 'WA';
+             }
 
-          db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
-              type: 'WA_BROADCAST',
-              message: msg,
-              timestamp: admin.firestore.FieldValue.serverTimestamp()
-          });
+             if (actualChannel === 'EMAIL') {
+                console.log(`📧 [SCHEDULED] Mengirim Email ke ${target.email}`);
+                await sendEmail(target.email, subject, msg);
+                db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                   type: 'EMAIL_BROADCAST',
+                   subject: subject,
+                   message: msg,
+                   timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+             } else {
+                console.log(`➡️ [SCHEDULED] Mengirim WA ke ${target.phone}`);
+                db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                   type: 'WA_BROADCAST',
+                   message: msg,
+                   timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+             }
+          }
         }, i * 1000); // delay aman 1 detik
       });
 

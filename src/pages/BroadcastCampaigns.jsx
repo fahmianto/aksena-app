@@ -11,6 +11,8 @@ export default function BroadcastCampaigns() {
   const [audienceStage, setAudienceStage] = useState('ALL');
   const [sendType, setSendType] = useState('NOW'); // 'NOW' or 'SCHEDULED'
   const [scheduledAt, setScheduledAt] = useState('');
+  const [channel, setChannel] = useState('WA'); // 'WA' | 'EMAIL' | 'SMART'
+  const [subject, setSubject] = useState('');
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -49,6 +51,11 @@ export default function BroadcastCampaigns() {
       return;
     }
 
+    if (channel !== 'WA' && !subject) {
+      toast.error('Subjek email wajib diisi bila channel bukan spesifik WA');
+      return;
+    }
+
     if (sendType === 'SCHEDULED' && !scheduledAt) {
       toast.error('Pilih tanggal dan jam penjadwalan terlebih dahulu');
       return;
@@ -69,6 +76,8 @@ export default function BroadcastCampaigns() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message,
+          subject,
+          channel,
           audienceParams: { filterStage: audienceStage },
           userId: currentUser?.uid,
           scheduledAt: sendType === 'SCHEDULED' ? scheduledAt : null
@@ -134,10 +143,37 @@ export default function BroadcastCampaigns() {
           </div>
 
           <div className="card" style={{ padding: 24 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 16 }}>Editor Pesan WhatsApp</h2>
+            <h2 style={{ fontSize: 16, marginBottom: 16 }}>Opsi Distribusi & Pesan</h2>
             
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label>Pilih Saluran (Channel)</label>
+              <select 
+                className="form-input" 
+                value={channel}
+                onChange={(e) => setChannel(e.target.value)}
+              >
+                <option value="WA">📱 WhatsApp Only</option>
+                <option value="EMAIL">📧 Email Only</option>
+                <option value="BOTH">📱📧 WhatsApp & Email (Broadcast Ganda)</option>
+                <option value="SMART">🤖 Smart Omnichannel (Email diutamakan jika ada)</option>
+              </select>
+            </div>
+
+            {channel !== 'WA' && (
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label>Judul / Subjek Email</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Subjek unik yang bikin penasaran..."
+                />
+              </div>
+            )}
+
             <div className="form-group">
-              <label>Draf Pesan</label>
+              <label>Draf Pesan {channel === 'EMAIL' ? '(Mendukung HTML dasar via Node)' : ''}</label>
               <textarea 
                 className="form-input" 
                 rows={10} 

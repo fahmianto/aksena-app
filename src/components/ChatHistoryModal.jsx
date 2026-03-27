@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Bot, User, MessageSquare } from 'lucide-react';
+import { X, Bot, User, MessageSquare, Mail } from 'lucide-react';
 import { subscribeToContactHistory } from '../services/leadService';
 
 export default function ChatHistoryModal({ lead, onClose }) {
@@ -46,14 +46,17 @@ export default function ChatHistoryModal({ lead, onClose }) {
             </div>
           ) : (
             history.map((chat) => {
-              const isAI = chat.type === 'WA_OUTBOUND_AI' || chat.type === 'WA_NURTURE' || chat.type === 'WA_BROADCAST';
+              const isSystem = chat.type !== 'WA_INBOUND';
+              const isEmail = chat.type === 'EMAIL_NURTURE' || chat.type === 'EMAIL_BROADCAST';
+              const isAI = !isEmail && isSystem;
+
               return (
                 <div key={chat.id} style={{ 
                   display: 'flex', 
                   flexDirection: 'column',
-                  alignItems: isAI ? 'flex-start' : 'flex-end',
+                  alignItems: isSystem ? 'flex-start' : 'flex-end',
                   maxWidth: '85%',
-                  alignSelf: isAI ? 'flex-start' : 'flex-end'
+                  alignSelf: isSystem ? 'flex-start' : 'flex-end'
                 }}>
                   <div style={{ 
                     display: 'flex', 
@@ -63,21 +66,28 @@ export default function ChatHistoryModal({ lead, onClose }) {
                     fontSize: '11px',
                     color: 'var(--color-text-muted)'
                   }}>
-                    {isAI ? <Bot size={12} className="text-accent" /> : <User size={12} className="text-success" />}
-                    {isAI ? 'Aksena System' : lead.name}
+                    {isSystem ? (
+                      isEmail ? <Mail size={12} className="text-info" /> : <Bot size={12} className="text-accent" />
+                    ) : <User size={12} className="text-success" />}
+                    {isSystem ? (isEmail ? 'Aksena Mailer' : 'Aksena System') : lead.name}
                   </div>
                   <div style={{
-                    background: isAI ? 'rgba(0, 212, 255, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                    border: `1px solid ${isAI ? 'rgba(0, 212, 255, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                    background: isSystem ? (isEmail ? 'rgba(56, 189, 248, 0.1)' : 'rgba(0, 212, 255, 0.1)') : 'rgba(16, 185, 129, 0.1)',
+                    border: `1px solid ${isSystem ? (isEmail ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0, 212, 255, 0.2)') : 'rgba(16, 185, 129, 0.2)'}`,
                     padding: '12px',
                     borderRadius: '12px',
-                    borderTopLeftRadius: isAI ? '4px' : '12px',
-                    borderTopRightRadius: isAI ? '12px' : '4px',
+                    borderTopLeftRadius: isSystem ? '4px' : '12px',
+                    borderTopRightRadius: isSystem ? '12px' : '4px',
                     color: 'var(--color-text)',
                     fontSize: '14px',
                     lineHeight: '1.5'
                   }}>
-                    {chat.message}
+                    {isEmail && chat.subject && (
+                      <div style={{ fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '6px', marginBottom: '8px' }}>
+                        Subject: {chat.subject}
+                      </div>
+                    )}
+                    <div dangerouslySetInnerHTML={{ __html: chat.message?.replace(/\n/g, '<br/>') || '' }} />
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                     {chat.timestamp?.toDate ? chat.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : 'Baru saja'}
