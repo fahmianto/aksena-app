@@ -10,6 +10,47 @@ try {
   const cors = require('cors');
   const cron = require('node-cron');
   const nodemailer = require('nodemailer');
+
+  // ==========================================
+  // NODEMAILER SETUP (Mailketing)
+  // ==========================================
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.mailketing.co.id',
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false, // TLS
+    auth: {
+      user: process.env.SMTP_USER || 'dummy',
+      pass: process.env.SMTP_PASS || 'dummy'
+    }
+  });
+  // Verify connection (non-blocking)
+  transporter.verify((error, success) => {
+    if (error) {
+      console.warn('⚠️ SMTP terputus/Belum disetting di .env. Akan menggunakan console.log untuk email (Mock Mode).');
+    } else {
+      console.log('📧 SMTP Mailketing Ready!');
+    }
+  });
+
+  // Helper Function: Kirim Email (HTML)
+  global.sendEmail = async (to, subject, htmlContent) => {
+    if (!process.env.SMTP_PASS) {
+      console.log(`[MOCK EMAIL] Mengirim Email ke ${to} | Subjek: ${subject}`);
+      return true;
+    }
+    try {
+      await transporter.sendMail({
+        from: '"Aksena System" <no-reply@aksena.id>',
+        to,
+        subject,
+        html: htmlContent
+      });
+      return true;
+    } catch (error) {
+      console.error(`Gagal mengirim email ke ${to}:`, error);
+      return false;
+    }
+  };
 } catch (globalError) {
   console.error('💥 FATAL CRASH DURING BOOTSTRAP:', globalError);
   process.exit(1);
@@ -17,29 +58,6 @@ try {
 
 // Komponen AI akan di-load secara lazy di dalam route agar tidak menghambat startup
 
-// ==========================================
-// NODEMAILER SETUP (Mailketing)
-// ==========================================
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.mailketing.co.id',
-  port: process.env.SMTP_PORT || 587,
-  secure: false, // TLS
-  auth: {
-    user: process.env.SMTP_USER || 'dummy',
-    pass: process.env.SMTP_PASS || 'dummy'
-  }
-});
-// Verify connection (non-blocking)
-transporter.verify((error, success) => {
-  if (error) {
-    console.warn('⚠️ SMTP terputus/Belum disetting di .env. Akan menggunakan console.log untuk email (Mock Mode).');
-  } else {
-    console.log('📧 SMTP Mailketing Ready!');
-  }
-});
-
-// Helper Function: Kirim Email (HTML)
-const sendEmail = async (to, subject, htmlContent) => {
   if (!process.env.SMTP_PASS) {
     console.log(`[MOCK EMAIL] Mengirim Email ke ${to} | Subjek: ${subject}`);
     return true;
