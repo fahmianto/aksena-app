@@ -48,21 +48,26 @@ const sendEmail = async (to, subject, htmlContent) => {
 
 
 const admin = require('firebase-admin');
-// CATATAN: Bro perlu menaruh file serviceAccountKey.json di folder server/ ini
-// agar backend bisa mengakses database secara aman.
-const serviceAccountPath = './serviceAccountKey.json'; 
 
+let db = null;
 try {
-  const serviceAccount = require(serviceAccountPath);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-  console.log('✅ Firebase Admin Initialized');
+  // Support dua cara: ENV variable (Railway/Cloud) atau file lokal (dev)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Mode Cloud: parse dari environment variable
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    console.log('✅ Firebase Admin Initialized (from ENV)');
+  } else {
+    // Mode Lokal: baca dari file serviceAccountKey.json
+    const serviceAccount = require('./serviceAccountKey.json');
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    console.log('✅ Firebase Admin Initialized (from file)');
+  }
+  db = admin.firestore();
 } catch (e) {
-  console.warn('⚠️ Firebase Admin gagal load (File json belum ada). Fitur Atomic Stok dinonaktifkan.');
+  console.warn('⚠️ Firebase Admin gagal load. Fitur database dinonaktifkan.', e.message);
 }
 
-const db = admin.apps.length > 0 ? admin.firestore() : null;
 
 const app = express();
 app.use(cors());
