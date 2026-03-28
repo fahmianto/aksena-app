@@ -10,7 +10,14 @@ const admin = require('firebase-admin');
 const app = express();
 let server;
 
+// Middleware Logging Request (Untuk Debugging 502)
+app.use((req, res, next) => {
+  console.log(`📩 [Incoming Request] ${req.method} ${req.url}`);
+  next();
+});
+
 // 1. EARLY BINDING (Sangat Penting untuk Railway!)
+
 const PORT = process.env.PORT || 3000;
 server = app.listen(PORT, () => {
   console.log(`📡 [Aksena Server] Berjalan pada port ${PORT}...`);
