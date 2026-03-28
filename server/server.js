@@ -9,8 +9,7 @@ app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
 const cors = require('cors');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
-const { handleIncomingChat } = require('./aiEngine');
-const { handleOwnerChat } = require('./aciEngine');
+// Komponen AI akan di-load secara lazy di dalam route agar tidak menghambat startup
 
 // ==========================================
 // NODEMAILER SETUP (Mailketing)
@@ -106,6 +105,8 @@ app.get('/webhook/whatsapp', (req, res) => {
 // ROUTE 2: Menerima Pesan Masuk dari WhatsApp
 // ==========================================
 app.post('/webhook/whatsapp', async (req, res) => {
+  const { handleIncomingChat } = require('./aiEngine');
+  const { handleOwnerChat } = require('./aciEngine');
   const body = req.body;
 
   if (body.object) {
@@ -766,6 +767,7 @@ cron.schedule('* * * * *', runScheduledBroadcasts);
 // ROUTE ACI: Dashboard Chat AI 
 // ==========================================
 app.post('/api/aci/chat', async (req, res) => {
+  const { handleOwnerChat } = require('./aciEngine');
   const { message, role } = req.body;
   if (!message) return res.status(400).json({ error: 'Message required' });
 
