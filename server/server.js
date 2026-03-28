@@ -1,5 +1,9 @@
 require('dotenv').config();
+console.log('🚀 [Aksena Startup] Prosedur inisialisasi dimulai...');
+console.log('🌍 Environment PORT:', process.env.PORT);
+console.log('🔧 Node Version:', process.version);
 const express = require('express');
+
 const cors = require('cors');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
