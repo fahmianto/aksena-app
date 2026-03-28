@@ -1,14 +1,17 @@
 require('dotenv').config();
 console.log('🚀 [Aksena Startup] Prosedur inisialisasi dimulai...');
-console.log('🌍 Environment PORT:', process.env.PORT);
-console.log('🔧 Node Version:', process.version);
 const express = require('express');
+const app = express();
+
+// EARLY HEALTH CHECK - Supaya kita tau Express jalan atau nggak
+app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
 
 const cors = require('cors');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const { handleIncomingChat } = require('./aiEngine');
 const { handleOwnerChat } = require('./aciEngine');
+
 // ==========================================
 // NODEMAILER SETUP (Mailketing)
 // ==========================================
