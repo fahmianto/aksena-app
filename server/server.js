@@ -9,7 +9,14 @@ const admin = require('firebase-admin');
 
 const app = express();
 
-// EARLY HEALTH CHECK
+// 1. EARLY BINDING (Sangat Penting untuk Railway!)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`📡 [Aksena Server] Berjalan pada port ${PORT} (0.0.0.0)...`);
+});
+
+// 2. EARLY HEALTH CHECK
+
 app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
 
 // ==========================================
