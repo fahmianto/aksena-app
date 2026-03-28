@@ -8,12 +8,14 @@ const nodemailer = require('nodemailer');
 const admin = require('firebase-admin');
 
 const app = express();
+let server;
 
 // 1. EARLY BINDING (Sangat Penting untuk Railway!)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server = app.listen(PORT, () => {
   console.log(`📡 [Aksena Server] Berjalan pada port ${PORT}...`);
 });
+
 
 // 2. EARLY HEALTH CHECK
 
