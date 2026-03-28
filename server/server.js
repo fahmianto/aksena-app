@@ -1,14 +1,20 @@
-require('dotenv').config();
-console.log('🚀 [Aksena Startup] Prosedur inisialisasi dimulai...');
-const express = require('express');
-const app = express();
+try {
+  require('dotenv').config();
+  console.log('🚀 [Aksena Startup] Prosedur inisialisasi dimulai...');
+  const express = require('express');
+  const app = express();
+  
+  // EARLY HEALTH CHECK
+  app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
+  
+  const cors = require('cors');
+  const cron = require('node-cron');
+  const nodemailer = require('nodemailer');
+} catch (globalError) {
+  console.error('💥 FATAL CRASH DURING BOOTSTRAP:', globalError);
+  process.exit(1);
+}
 
-// EARLY HEALTH CHECK - Supaya kita tau Express jalan atau nggak
-app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
-
-const cors = require('cors');
-const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 // Komponen AI akan di-load secara lazy di dalam route agar tidak menghambat startup
 
 // ==========================================
