@@ -58,23 +58,7 @@ try {
 
 // Komponen AI akan di-load secara lazy di dalam route agar tidak menghambat startup
 
-  if (!process.env.SMTP_PASS) {
-    console.log(`[MOCK EMAIL] Mengirim Email ke ${to} | Subjek: ${subject}`);
-    return true;
-  }
-  try {
-    await transporter.sendMail({
-      from: '"Aksena System" <no-reply@aksena.id>',
-      to,
-      subject,
-      html: htmlContent
-    });
-    return true;
-  } catch (error) {
-    console.error(`Gagal mengirim email ke ${to}:`, error);
-    return false;
-  }
-};
+
 
 
 const admin = require('firebase-admin');
