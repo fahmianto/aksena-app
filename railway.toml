@@ -4,8 +4,8 @@ buildCommand = "npm install"
 watchPatterns = ["/server/**"]
 
 [deploy]
-startCommand = "node server.js"
-rootDirectory = "/server"
+startCommand = "npm start"
+rootDirectory = "./"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 
