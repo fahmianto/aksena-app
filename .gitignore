@@ -24,3 +24,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase Secrets
+server/sa_oneline.txt
+server/serviceAccountKey.json
