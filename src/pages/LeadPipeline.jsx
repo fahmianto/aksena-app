@@ -12,6 +12,7 @@ import {
 } from '../services/leadService';
 import toast from 'react-hot-toast';
 import ChatHistoryModal from '../components/ChatHistoryModal';
+import { API_BASE_URL } from '../config/api';
 
 export default function LeadPipeline() {
   const [leads, setLeads] = useState([]);
@@ -45,7 +46,7 @@ export default function LeadPipeline() {
   const handleNurture = async (lead) => {
     const toastId = toast.loading(`Mengirim seri edukasi WA ke ${lead.phone || lead.businessName}...`);
     try {
-      const res = await fetch('http://localhost:3000/api/leads/nurture', {
+      const res = await fetch(`${API_BASE_URL}/api/leads/nurture`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

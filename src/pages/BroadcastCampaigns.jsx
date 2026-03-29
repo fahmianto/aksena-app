@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Send, Sparkles, Filter, Users, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { API_BASE_URL } from '../config/api';
 
 export default function BroadcastCampaigns() {
   const { currentUser } = useAuth();
@@ -27,7 +28,7 @@ export default function BroadcastCampaigns() {
     const loadingToast = toast.loading('Silakan tunggu, AI sedang menyusun kata-kata...');
     
     try {
-      const res = await fetch('http://localhost:3000/api/ai/copywriter', {
+      const res = await fetch(`${API_BASE_URL}/api/ai/copywriter`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic })
@@ -71,7 +72,7 @@ export default function BroadcastCampaigns() {
     const loadingToast = toast.loading('Sedang mengantrekan pengiriman massal ke server...');
 
     try {
-      const res = await fetch('http://localhost:3000/api/marketer/broadcast', {
+      const res = await fetch(`${API_BASE_URL}/api/marketer/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

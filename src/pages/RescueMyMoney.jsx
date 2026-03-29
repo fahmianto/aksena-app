@@ -3,6 +3,7 @@ import { AlertTriangle, TrendingUp, Zap, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase/config';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { API_BASE_URL } from '../config/api';
 
 export default function RescueMyMoney() {
   const { currentUser } = useAuth();
@@ -27,7 +28,7 @@ export default function RescueMyMoney() {
 
   const handleManualScan = async () => {
     try {
-      await fetch('http://localhost:3000/api/asl/trigger-scan', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/asl/trigger-scan`, { method: 'POST' });
       alert('✅ Daily Scan selesai dijalankan! Cek produk di tabel.');
     } catch (e) {
       alert('❌ Server backend belum aktif. Jalankan: cd server && node server.js');
@@ -38,7 +39,7 @@ export default function RescueMyMoney() {
     setBlasting(item.id);
     const msg = `Halo Kak! Aksena ada Flash Sale terbatas untuk ${item.name} – diskon ${discountRate}% khusus hari ini. Jangan sampai kehabisan! 🔥`;
     try {
-      await fetch('http://localhost:3000/api/marketer/broadcast', {
+      await fetch(`${API_BASE_URL}/api/marketer/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg, targets: [], userId: currentUser?.uid })
