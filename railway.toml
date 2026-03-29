@@ -1,14 +1,8 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install"
-watchPatterns = ["/server/**"]
+watchPatterns = ["server/**"]
 
 [deploy]
 startCommand = "npm start"
-rootDirectory = "./"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
-
-[deploy.service]
-# Memaksa Railway mengarahkan traffic ke port yang benar
-tcpPort = 8080

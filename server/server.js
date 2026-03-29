@@ -27,7 +27,12 @@ server = app.listen(PORT, '0.0.0.0', () => {
 // 2. EARLY HEALTH CHECK
 
 app.get('/', (req, res) => res.status(200).send('Aksena Bridge is Open! 🌉'));
+
+// ==========================================
+// HEALTH CHECK (Always First)
+// ==========================================
 app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
+
 
 
 // ==========================================
@@ -78,11 +83,16 @@ global.sendEmail = async (to, subject, htmlContent) => {
 let db = null;
 try {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    // Robust parsing to handle newline/escaping issues in ENV
+    let saText = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
+    if (saText.startsWith("'") || saText.startsWith('"')) saText = saText.slice(1, -1);
+    const sanitized = saText.replace(/\\n/g, '\n').replace(/\r/g, '');
+    const serviceAccount = JSON.parse(sanitized);
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     console.log('✅ Firebase Admin Initialized (from ENV)');
   } else {
-    const serviceAccount = require('./serviceAccountKey.json');
+    const path = require('path');
+    const serviceAccount = require(path.join(__dirname, 'serviceAccountKey.json'));
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     console.log('✅ Firebase Admin Initialized (from file)');
   }
