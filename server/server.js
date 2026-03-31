@@ -23,7 +23,7 @@ app.use((req, res, next) => {
 });
 
 // 1. EARLY BINDING (Sangat Penting untuk Railway!)
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 [Aksena Server] Berjalan pada port ${PORT} (0.0.0.0)...`);
 });
@@ -81,7 +81,8 @@ try {
     // Robust parsing to handle newline/escaping issues in ENV
     let saText = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
     if (saText.startsWith("'") || saText.startsWith('"')) saText = saText.slice(1, -1);
-    const sanitized = saText.replace(/\\n/g, '\n').replace(/\r/g, '');
+    // Hilangkan semua raw newlines/control characters, lalu ganti literal \n dengan newline asli
+    const sanitized = saText.replace(/[\n\r\t]/g, '').replace(/\\n/g, '\n');
     const serviceAccount = JSON.parse(sanitized);
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     console.log('✅ Firebase Admin Initialized (from ENV)');
