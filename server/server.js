@@ -10,6 +10,12 @@ const admin = require('firebase-admin');
 const app = express();
 let server;
 
+// ==========================================
+// HEALTH CHECKS (Must be FIRST for Railway)
+// ==========================================
+app.get('/', (req, res) => res.status(200).send('Aksena Bridge is Open! 🌉'));
+app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
+
 // Middleware Logging Request (Untuk Debugging 502)
 app.use((req, res, next) => {
   console.log(`📩 [Incoming Request] ${req.method} ${req.url}`);
@@ -17,21 +23,10 @@ app.use((req, res, next) => {
 });
 
 // 1. EARLY BINDING (Sangat Penting untuk Railway!)
-
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 [Aksena Server] Berjalan pada port ${PORT} (0.0.0.0)...`);
 });
-
-
-// 2. EARLY HEALTH CHECK
-
-app.get('/', (req, res) => res.status(200).send('Aksena Bridge is Open! 🌉'));
-
-// ==========================================
-// HEALTH CHECK (Always First)
-// ==========================================
-app.get('/health', (req, res) => res.status(200).send('Aksena is Alive! ✅'));
 
 
 
