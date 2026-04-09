@@ -24,6 +24,19 @@ export default function Settings() {
   const [business, setBusiness] = useState(userProfile?.business || '');
   const [saving, setSaving]     = useState(false);
 
+  // Omni-channel & Sync Settings
+  const [shopeeUrl, setShopeeUrl] = useState(userProfile?.shopeeUrl || '');
+  const [tokopediaUrl, setTokopediaUrl] = useState(userProfile?.tokopediaUrl || '');
+  const [tiktokUrl, setTiktokUrl] = useState(userProfile?.tiktokUrl || '');
+  const [autoSync, setAutoSync] = useState(userProfile?.autoSync || false);
+  const [stockGuard, setStockGuard] = useState(userProfile?.stockGuard || 0);
+
+  // API Integration State (BYO-API)
+  const [waToken, setWaToken] = useState(userProfile?.waToken || '');
+  const [waPhoneId, setWaPhoneId] = useState(userProfile?.waPhoneId || '');
+  const [fonnteToken, setFonnteToken] = useState(userProfile?.fonnteToken || '');
+  const [mailketingToken, setMailketingToken] = useState(userProfile?.mailketingToken || '');
+
   // Team Management State
   const [team, setTeam] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -36,7 +49,19 @@ export default function Settings() {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateUserProfile(currentUser.uid, { name, business });
+      await updateUserProfile(currentUser.uid, { 
+        name, 
+        business,
+        shopeeUrl,
+        tokopediaUrl,
+        tiktokUrl,
+        autoSync,
+        stockGuard: parseInt(stockGuard) || 0,
+        waToken,
+        waPhoneId,
+        fonnteToken,
+        mailketingToken
+      });
       toast.success('Profil berhasil disimpan!');
     } catch {
       toast.error('Gagal menyimpan. Coba lagi.');
@@ -149,6 +174,59 @@ export default function Settings() {
         </form>
       </div>
 
+      {/* Channel & Shop Links */}
+      <div className="card" style={{ marginBottom:'20px' }}>
+        <div className="card-header">
+          <span className="card-title">
+            <Zap size={16} style={{ display:'inline', marginRight:6, color:'var(--color-accent)' }} />
+            Koneksi Toko (Omni-channel)
+          </span>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+          <p style={{ fontSize:'13px', color:'var(--color-text-secondary)' }}>
+            Link ini digunakan AI untuk mengarahkan pelanggan ke marketplace yang sesuai.
+          </p>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px' }}>
+            <div className="form-group">
+              <label className="form-label">Link Shopee</label>
+              <input className="form-input" value={shopeeUrl} onChange={e=>setShopeeUrl(e.target.value)} placeholder="https://shopee.co.id/toko-anda" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Link Tokopedia</label>
+              <input className="form-input" value={tokopediaUrl} onChange={e=>setTokopediaUrl(e.target.value)} placeholder="https://tokopedia.com/toko-anda" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Link TikTok Shop</label>
+            <input className="form-input" value={tiktokUrl} onChange={e=>setTiktokUrl(e.target.value)} placeholder="https://tiktok.com/@toko-anda" />
+          </div>
+          
+          <hr style={{ border:'none', borderTop:'1px solid var(--color-border)', margin:'10px 0' }} />
+          
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div>
+              <div style={{ fontSize:'14px', fontWeight:600 }}>Auto-Sync Inventory</div>
+              <div style={{ fontSize:'12px', color:'var(--color-text-muted)' }}>Sinkronisasi stok otomatis antar channel marketplace.</div>
+            </div>
+            <input type="checkbox" checked={autoSync} onChange={e=>setAutoSync(e.target.checked)} style={{ width:'20px', height:'20px', cursor:'pointer' }} />
+          </div>
+
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div>
+              <div style={{ fontSize:'14px', fontWeight:600 }}>Stock Guard (Buffer)</div>
+              <div style={{ fontSize:'12px', color:'var(--color-text-muted)' }}>Sisa stok pengaman agar tidak oversell (misal: 2).</div>
+            </div>
+            <input className="form-input" type="number" style={{ width:'80px' }} value={stockGuard} onChange={e=>setStockGuard(e.target.value)} />
+          </div>
+
+          <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'10px' }}>
+            <button onClick={handleSave} className="btn btn-primary" disabled={saving} style={{ background:'var(--color-accent)', color:'#000' }}>
+              <Save size={15} /> {saving ? 'Menyimpan...' : 'Update Koneksi'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Team Management - Only visible for pure Owner/Super Admin */}
       {['owner', 'super_admin'].includes(userProfile?.role) && (
         <div className="card" style={{ marginBottom:'20px' }}>
@@ -206,6 +284,54 @@ export default function Settings() {
             </div>
             <div style={{ marginTop:12, fontSize:'11px', color:'var(--color-warning)' }}>
               <i>* Anggota staf tidak dapat mengakses menu Pengaturan ini maupun The Brain.</i>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API Integration - Restricted to Owner/Super Admin */}
+      {['owner', 'super_admin'].includes(userProfile?.role) && (
+        <div className="card" style={{ marginBottom: '15px' }}>
+          <div className="card-header">
+            <span className="card-title">
+              <Shield size={16} style={{ display: 'inline', marginRight: 6, color: 'var(--color-success)' }} />
+              Integrasi API (Developer Settings)
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+              Gunakan kredensial Anda sendiri untuk performa maksimal dan biaya lebih hemat (Bring Your Own API).
+            </p>
+            
+            <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '10px', color: 'var(--color-accent)' }}>1. Meta WhatsApp Cloud API</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '10px' }}>Access Token</label>
+                  <input className="form-input" type="password" value={waToken} onChange={e => setWaToken(e.target.value)} placeholder="EAAGm..." />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '10px' }}>Phone ID</label>
+                  <input className="form-input" value={waPhoneId} onChange={e => setWaPhoneId(e.target.value)} placeholder="10293..." />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '10px', color: '#34d399' }}>2. Fonnte Token</div>
+                <input className="form-input" type="password" value={fonnteToken} onChange={e => setFonnteToken(e.target.value)} placeholder="WKRRx..." />
+              </div>
+              <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '10px', color: '#f59e0b' }}>3. Mailketing Token</div>
+                <input className="form-input" type="password" value={mailketingToken} onChange={e => setMailketingToken(e.target.value)} placeholder="ffa6e..." />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={handleSave} className="btn btn-primary btn-sm" disabled={saving}>
+                <Save size={13} /> {saving ? 'Saving...' : 'Simpan Kredensial'}
+              </button>
             </div>
           </div>
         </div>

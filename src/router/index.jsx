@@ -12,10 +12,12 @@ import Manager from '../pages/Manager';
 import Collector from '../pages/Collector';
 import Compass from '../pages/Compass';
 import Settings from '../pages/Settings';
+import Tracking from '../pages/Tracking';
 import RescueMyMoney from '../pages/RescueMyMoney';
 import LeadPipeline from '../pages/LeadPipeline';
 import BroadcastCampaigns from '../pages/BroadcastCampaigns';
 import DripSettings from '../pages/DripSettings';
+import Billing from '../pages/Billing';
 
 import RoleGuard from '../components/RoleGuard';
 
@@ -38,10 +40,12 @@ const router = createBrowserRouter([
       { path: '/collector',  element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><Collector /></RoleGuard> },
       { path: '/compass',    element: <RoleGuard allowedRoles={['super_admin', 'owner']}><Compass /></RoleGuard> },
       { path: '/settings',   element: <RoleGuard allowedRoles={['super_admin', 'owner']}><Settings /></RoleGuard> },
+      { path: '/tracking',   element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager', 'staff']}><Tracking /></RoleGuard> },
       { path: '/asl',        element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><RescueMyMoney /></RoleGuard> },
       { path: '/leads',      element: <RoleGuard allowedRoles={['super_admin']}><LeadPipeline /></RoleGuard> },
       { path: '/drip-settings', element: <RoleGuard allowedRoles={['super_admin']}><DripSettings /></RoleGuard> },
       { path: '/campaigns',  element: <RoleGuard allowedRoles={['super_admin', 'owner', 'manager']}><BroadcastCampaigns /></RoleGuard> },
+      { path: '/billing',    element: <RoleGuard allowedRoles={['super_admin', 'owner']}><Billing /></RoleGuard> },
     ],
   },
 ]);

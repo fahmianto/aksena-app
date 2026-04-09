@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, addDoc, updateDoc,
-  query, where, orderBy, serverTimestamp, limit,
+  query, where, orderBy, serverTimestamp, limit, onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -15,6 +15,19 @@ export async function getTransactions(userId, limitCount = 50) {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export function subscribeTransactions(userId, callback, limitCount = 50) {
+  const q = query(
+    collection(db, COLL),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
+  );
+  return onSnapshot(q, (snap) => {
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(data);
+  });
 }
 
 export async function addTransaction(userId, data) {

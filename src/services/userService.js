@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export async function createUserProfile(uid, data) {
@@ -11,6 +11,20 @@ export async function getUserProfile(uid) {
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() };
+}
+
+export function subscribeToUserProfile(uid, callback) {
+  const ref = doc(db, 'users', uid);
+  return onSnapshot(ref, (snap) => {
+    if (snap.exists()) {
+      callback({ id: snap.id, ...snap.data() });
+    } else {
+      callback(null);
+    }
+  }, (err) => {
+    console.error('Snapshot error:', err);
+    callback(null);
+  });
 }
 
 export async function updateUserProfile(uid, data) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MessageSquare, Instagram, ShoppingBag, Search, Send, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { messageService } from '../services/messageService';
+import EmptyState from '../components/common/EmptyState';
 
 const channels = [
   { id: 'wa',  label: 'WhatsApp',  icon: MessageSquare, cls: 'channel-wa' },
@@ -22,31 +23,18 @@ export default function Harvester() {
   useEffect(() => {
     if (!user) return;
 
-    let unsubMessages = null;
-
-    // Seed then subscribe
-    const init = async () => {
-      try {
-        await messageService.seedDemoData(user.uid);
-      } catch (err) {
-        console.error("Failed to seed:", err);
+    setLoading(true);
+    const unsubConvs = messageService.subscribeToConversations(user.uid, (data) => {
+      setConversations(data);
+      if (data.length > 0 && !active) {
+        setActive(data[0]);
       }
-      
-      const unsubConvs = messageService.subscribeToConversations(user.uid, (data) => {
-        setConversations(data);
-        if (data.length > 0 && !active) {
-          setActive(data[0]);
-        }
-        setLoading(false);
-      });
+      setLoading(false);
+    });
 
-      return () => {
-        if (unsubConvs) unsubConvs();
-        if (unsubMessages) unsubMessages();
-      };
+    return () => {
+      if (unsubConvs) unsubConvs();
     };
-
-    init();
   }, [user]);
 
   // Subscribe to messages when active changes
@@ -115,9 +103,20 @@ export default function Harvester() {
         {/* Conversation List */}
         <div style={{ flex:1, overflowY:'auto' }}>
           {loading ? (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>Memuat percakapan...</div>
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
+              <Loader size={18} className="spin" style={{ marginBottom: 8 }} />
+              <div>Memuat percakapan...</div>
+            </div>
           ) : filtered.length === 0 ? (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>Tidak ada percakapan.</div>
+            <div style={{ padding: '40px 20px' }}>
+              <EmptyState 
+                icon={MessageSquare} 
+                title="Inbox Kosong" 
+                description="Belum ada pesan masuk. Hubungkan WhatsApp atau Instagram Anda di menu Pengaturan."
+                actionLabel="Buka Pengaturan"
+                onAction={() => window.location.hash = '#/settings'}
+              />
+            </div>
           ) : filtered.map(conv => {
             const ch = chanInfo[conv.channel] || chanInfo.wa;
             

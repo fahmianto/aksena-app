@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Bot, ShoppingCart, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { messageService } from '../services/messageService';
+import { subscribeToInventory } from '../services/inventoryService';
+import { subscribeTransactions } from '../services/transactionService';
 
 const scripts = [
   { type: 'Double Binding', text: 'Kakak mau yang warna hitam atau navy? Keduanya lagi bestseller minggu ini 😊' },
@@ -19,17 +21,42 @@ export default function Closer() {
   const [activeConvos, setActiveConvos] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [inventory, setInventory] = useState([]);
+  const [stats, setStats] = useState({ closing: 0, failed: 0, rate: '0%' });
+
   useEffect(() => {
     if (!user) return;
     
-    const unsub = messageService.subscribeToConversations(user.uid, (data) => {
-      // Filter only active negotiations
+    // 1. Subscribe to Active Conversations
+    const unsubConvos = messageService.subscribeToConversations(user.uid, (data) => {
       const filtered = data.filter(c => ['new', 'negotiating', 'closing'].includes(c.status || 'new'));
       setActiveConvos(filtered);
       setLoading(false);
     });
+
+    // 2. Subscribe to Live Stock
+    const unsubInv = subscribeToInventory(user.uid, (data) => {
+      setInventory(data.slice(0, 5));
+    });
+
+    // 3. Subscribe to Today's Stats
+    const unsubStats = subscribeTransactions(user.uid, (data) => {
+      const today = new Date().toDateString();
+      const todayTxs = data.filter(t => {
+        const d = t.createdAt?.toDate ? t.createdAt.toDate().toDateString() : new Date().toDateString();
+        return d === today;
+      });
+      const won = todayTxs.filter(t => t.status === 'success').length;
+      const lost = todayTxs.filter(t => t.status === 'failed').length;
+      const rate = todayTxs.length > 0 ? Math.round((won / todayTxs.length) * 100) + '%' : '0%';
+      setStats({ closing: won, failed: lost, rate });
+    });
     
-    return () => unsub();
+    return () => {
+      unsubConvos();
+      unsubInv();
+      unsubStats();
+    };
   }, [user]);
 
   const handleSendToChat = async (convId, text) => {
@@ -147,9 +174,9 @@ export default function Closer() {
         {/* Right stats */}
         <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
           {[
-            { label: 'Closing Hari Ini', value: '4', icon: CheckCircle, color: 'var(--color-success)' },
-            { label: 'Gagal / Batal', value: '1', icon: XCircle, color: 'var(--color-danger)' },
-            { label: 'Conv. Rate (AI)', value: '80%', icon: Bot, color: 'var(--color-accent)' },
+            { label: 'Closing Hari Ini', value: stats.closing, icon: CheckCircle, color: 'var(--color-success)' },
+            { label: 'Gagal / Batal', value: stats.failed, icon: XCircle, color: 'var(--color-danger)' },
+            { label: 'Conv. Rate (Today)', value: stats.rate, icon: Bot, color: 'var(--color-accent)' },
           ].map(s => (
             <div key={s.label} className="stat-card">
               <div className="stat-icon" style={{ background: `${s.color}20` }}>
@@ -162,11 +189,12 @@ export default function Closer() {
 
           <div className="card" style={{ padding:'16px' }}>
             <div style={{ fontSize:'12px', fontWeight:600, color:'var(--color-text-muted)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'12px' }}>Status Stok Live</div>
-            {[
-               { name: 'Loading Firebase Inventories..', stock: 0, ok: true },
-            ].map(item => (
-              <div key={item.name} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--color-border)' }}>
+            {inventory.length === 0 ? (
+               <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', padding: '10px 0' }}>Belum ada data stok.</div>
+            ) : inventory.map(item => (
+              <div key={item.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--color-border)' }}>
                 <span style={{ fontSize:'12px', color:'var(--color-text-primary)' }}>{item.name}</span>
+                <span className={`badge ${item.status === 'ok' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 10 }}>{item.stock} pcs</span>
               </div>
             ))}
           </div>

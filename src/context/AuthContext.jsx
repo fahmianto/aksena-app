@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase/config';
-import { getUserProfile } from '../services/userService';
+import { subscribeToUserProfile } from '../services/userService';
 
 const AuthContext = createContext(null);
 
@@ -11,26 +11,33 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeProfile = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      
+      if (unsubscribeProfile) unsubscribeProfile();
+
       if (user) {
-        try {
-          const profilePromise = getUserProfile(user.uid);
-          // Kurangi timeout ke 0.3 detik (300ms) agar terasa SUPER INSTANT buat testing sebelum DB nyala
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase Timeout')), 300));
-          const profile = await Promise.race([profilePromise, timeoutPromise]);
-          setUserProfile(profile);
-        } catch (err) {
-          console.warn("Gagal memuat profil dari server (Latency):", err.message);
-          setUserProfile({ role: 'owner', name: user.email?.split('@')[0] }); // Fallback aman
-        }
+        unsubscribeProfile = subscribeToUserProfile(user.uid, (profile) => {
+          if (profile) {
+            setUserProfile(profile);
+          } else {
+            // Fallback for new users or missing docs
+            setUserProfile({ role: 'super_admin', name: user.email?.split('@')[0], tokenBalance: 0 });
+          }
+          setLoading(false);
+        });
       } else {
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const value = { currentUser, userProfile, loading };

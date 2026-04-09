@@ -12,6 +12,12 @@ export default function RescueMyMoney() {
   const [deadStockItems, setDeadStockItems] = useState([]);
   const [blasting, setBlasting] = useState(null);
   const [stats, setStats] = useState({ potentialLoss: 0, projectedRecovery: 0, redItemsCount: 0 });
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  useEffect(() => {
+    // Trigger animation entry
+    setTimeout(() => setShowAnimation(true), 100);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -69,48 +75,71 @@ export default function RescueMyMoney() {
         </div>
       </div>
 
-      <div className="grid-3" style={{ marginBottom: '24px' }}>
-        {/* Card 1: Potential Loss */}
-        <div className="stat-card" style={{ borderColor: 'var(--color-danger)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(239,68,68,0.2)' }}>
-            <AlertTriangle size={18} color="#ef4444" />
+      <div className={`grid-3 ${showAnimation ? 'fade-in-up' : ''}`} style={{ marginBottom: '32px' }}>
+        {/* Card 1: Potential Loss - Alarming Red */}
+        <div className="glass-card" style={{ 
+          borderLeft: '4px solid var(--color-danger)', 
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{ position: 'absolute', top: -10, right: -10, opacity: 0.1 }}>
+            <AlertTriangle size={80} color="var(--color-danger)" />
           </div>
-          <div className="stat-label">Potential Loss (Modal Tertahan)</div>
-          <div className="stat-value" style={{ color: '#ef4444' }}>Rp {stats.potentialLoss.toLocaleString('id-ID')}</div>
-          <div className="stat-change" style={{ color: '#ef4444' }}>
-            Dari {stats.redItemsCount} produk di Zona Merah ({'>'}60 hari)
+          <div className="stat-label" style={{ color: 'var(--color-danger)', opacity: 0.8 }}>Potential Loss (Modal Tertahan)</div>
+          <div style={{ fontSize: '32px', fontWeight: '900', color: '#fff', margin: '8px 0' }}>
+            Rp {stats.potentialLoss.toLocaleString('id-ID')}
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className="live-dot" style={{ background: 'var(--color-danger)' }} />
+            {stats.redItemsCount} Produk di Zona Merah ({'>'}60 hari)
           </div>
         </div>
 
-        {/* Card 2: Projected Recovery */}
-        <div className="stat-card" style={{ borderColor: 'var(--color-success)' }}>
-          <div className="stat-icon" style={{ background: 'rgba(16,185,129,0.2)' }}>
-            <TrendingUp size={18} color="#10b981" />
+        {/* Card 2: Projected Recovery - Inspiring Success */}
+        <div className="glass-card" style={{ 
+          borderLeft: '4px solid var(--color-success)', 
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{ position: 'absolute', top: -10, right: -10, opacity: 0.1 }}>
+            <TrendingUp size={80} color="var(--color-success)" />
           </div>
-          <div className="stat-label">Projected Recovery</div>
-          <div className="stat-value" style={{ color: '#10b981' }}>Rp {stats.projectedRecovery.toLocaleString('id-ID')}</div>
-          <div className="stat-change" style={{ color: '#10b981' }}>Estimasi jika diskon {discountRate}% diterapkan</div>
+          <div className="stat-label" style={{ color: 'var(--color-success)', opacity: 0.8 }}>Projected Recovery</div>
+          <div style={{ fontSize: '32px', fontWeight: '900', color: 'var(--color-success)', margin: '8px 0' }}>
+            Rp {stats.projectedRecovery.toLocaleString('id-ID')}
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            Estimasi dana kembali jika diskon {discountRate}% diterapkan
+          </div>
         </div>
 
-        {/* Card 3: Auto-Liquidation Toggle */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontWeight: 600 }}>Auto-Liquidation</div>
+        {/* Card 3: Auto-Liquidation Toggle - Tech Modern */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', border: '1px solid var(--color-accent-glow)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '15px' }}>Auto-Liquidation AI</div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Status: {autoDiscount ? 'Aktif' : 'Non-aktif'}</div>
+            </div>
             <label className="switch">
               <input type="checkbox" checked={autoDiscount} onChange={handleToggleAuto} />
               <span className="slider round"></span>
             </label>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: 16 }}>
-            Izinkan AI menawarkan diskon sebagai &quot;Smart Offer&quot; saat ada lead.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             {[10, 20, 30, 50].map(pct => (
               <button
                 key={pct}
                 onClick={() => setDiscountRate(pct)}
-                className={`btn ${discountRate === pct ? 'btn-primary' : 'btn-outline'}`}
-                style={{ flex: 1, padding: '4px 0', fontSize: '13px', height: 'auto' }}
+                className="btn"
+                style={{ 
+                  flex: 1, padding: '6px 0', fontSize: '12px', height: 'auto',
+                  background: discountRate === pct ? 'var(--color-accent)' : 'rgba(255,255,255,0.05)',
+                  color: discountRate === pct ? '#000' : 'var(--color-text-secondary)',
+                  border: '1px solid transparent',
+                  borderColor: discountRate === pct ? 'var(--color-accent)' : 'var(--color-border)'
+                }}
                 disabled={!autoDiscount}
               >
                 {pct}%

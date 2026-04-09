@@ -73,6 +73,11 @@
   /* Sidebar */
   --sidebar-width: 260px;
   --header-height: 64px;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(13, 32, 64, 0.45);
+  --glass-border: rgba(0, 212, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 /* ===========================
@@ -169,6 +174,30 @@ ul { list-style: none; }
 .card:hover {
   border-color: var(--color-border-strong);
   box-shadow: var(--shadow-card), var(--shadow-accent);
+}
+
+.glass {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition: all var(--transition-base);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-accent-glow);
+  transform: translateY(-2px);
 }
 
 .card-header {
@@ -525,8 +554,11 @@ ul { list-style: none; }
    CHANNEL CHIPS
    =========================== */
 .channel-wa    { background: rgba(37,211,102,0.15); color: #25d366; border: 1px solid rgba(37,211,102,0.3); }
-.channel-ig    { background: rgba(225,48,108,0.15); color: #e1306c; border: 1px solid rgba(225,48,108,0.3); }
+.channel-ig    { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; border: 1px solid rgba(225,48,108,0.3); background-color: rgba(225,48,108,0.1); }
+.channel-ig-bg { background: linear-gradient(45deg, rgba(240,148,51,0.15), rgba(188,24,136,0.15)); color: #e1306c; border: 1px solid rgba(225,48,108,0.3); }
 .channel-sh    { background: rgba(238,77,45,0.15);  color: #ee4d2d; border: 1px solid rgba(238,77,45,0.3); }
+.channel-tk    { background: rgba(0,170,91,0.15);   color: #00aa5b; border: 1px solid rgba(0,170,91,0.3); }
+.channel-tiktok { background: rgba(0,0,0,0.3);      color: #fff;    border: 1px solid rgba(255,255,255,0.2); }
 
 /* ===========================
    ANIMATIONS
@@ -539,6 +571,17 @@ ul { list-style: none; }
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes pulse-flex {
+  0% { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05); }
+  50% { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 212, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.05); }
+  100% { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05); }
+}
+
+.flex-glow-card {
+  animation: pulse-flex 2s infinite ease-in-out;
+  border-color: rgba(0, 212, 255, 0.4) !important;
 }
 
 @keyframes shimmer {
@@ -565,6 +608,24 @@ ul { list-style: none; }
   height: 1px;
   background: var(--color-border);
   margin: var(--space-6) 0;
+}
+
+/* Page Transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+.page-exit {
+  opacity: 1;
+}
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 300ms;
 }
 
 /* ===========================

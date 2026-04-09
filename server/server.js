@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 console.log('🚀 [Aksena Startup] Prosedur inisialisasi dimulai...');
 
 const express = require('express');
@@ -6,6 +6,9 @@ const cors = require('cors');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const admin = require('firebase-admin');
+const notificationService = require('./notificationService');
+const { midtransService } = require('./midtransService');
+const { tokenService } = require('./tokenService');
 
 const app = express();
 let server;
@@ -52,24 +55,10 @@ try {
   console.warn('⚠️ SMTP Gagal Inisialisasi.');
 }
 
-// Helper Function: Kirim Email (HTML)
+// Helper Function: Kirim Email (HTML) - Sekarang menggunakan Mailketing REST API
 global.sendEmail = async (to, subject, htmlContent) => {
-  if (!process.env.SMTP_PASS || !transporter) {
-    console.log(`[MOCK EMAIL] To: ${to} | Subjek: ${subject}`);
-    return true;
-  }
-  try {
-    await transporter.sendMail({
-      from: '"Aksena System" <no-reply@aksena.id>',
-      to,
-      subject,
-      html: htmlContent
-    });
-    return true;
-  } catch (error) {
-    console.error(`Gagal mengirim email ke ${to}:`, error);
-    return false;
-  }
+  const result = await notificationService.sendEmail(to, subject, htmlContent);
+  return result.success;
 };
 
 // ==========================================
@@ -195,11 +184,140 @@ app.post('/webhook/whatsapp', async (req, res) => {
       }
 
       res.sendStatus(200); 
-    } else {
-      res.sendStatus(200); 
     }
   } else {
     res.sendStatus(404);
+  }
+});
+
+// ==========================================
+// ROUTE 2b: Webhook Instagram DM (Verify)
+// ==========================================
+app.get('/webhook/instagram', (req, res) => {
+  const verify_token = process.env.IG_VERIFY_TOKEN || process.env.WA_VERIFY_TOKEN;
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode && token) {
+    if (mode === 'subscribe' && token === verify_token) {
+      console.log('✅ IG Webhook Terverifikasi!');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  } else {
+    res.status(400).send('Harap serahkan hub.mode dan hub.verify_token');
+  }
+});
+
+// ==========================================
+// ROUTE 2c: Menerima Pesan Masuk dari Instagram
+// ==========================================
+app.post('/webhook/instagram', async (req, res) => {
+  const { handleIncomingChat } = require('./aiEngine');
+  const notificationService = require('./notificationService');
+  const body = req.body;
+
+  if (body.object === 'instagram') {
+    // 1. Handle Pesan Masuk (DM)
+    if (body.entry && body.entry[0].messaging && body.entry[0].messaging[0].message) {
+      const igMessage = body.entry[0].messaging[0].message;
+      const senderId = body.entry[0].messaging[0].sender.id;
+      const textMessage = igMessage.text || '';
+
+      console.log(`📸 [IG DM] Pesan Masuk dari ${senderId}: ${textMessage}`);
+      if (db) {
+        const snap = await db.collection('aksena_leads').where('ig_sid', '==', senderId).get();
+        let foundDoc = snap.empty ? null : snap.docs[0];
+        if (foundDoc) {
+          await handleIncomingChat(textMessage, foundDoc.data(), foundDoc.ref, db, 'IG_DM');
+        } else {
+          const newLead = {
+            name: `IG User ${senderId.slice(-4)}`,
+            ig_sid: senderId,
+            stage: 'NEW',
+            source: 'INSTAGRAM',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          };
+          const leadRef = await db.collection('aksena_leads').add(newLead);
+          await handleIncomingChat(textMessage, newLead, leadRef, db, 'IG_DM');
+        }
+      }
+      res.sendStatus(200);
+    } 
+    // 2. Handle Komentar Publik (Privacy Pivot)
+    else if (body.entry && body.entry[0].changes && body.entry[0].changes[0].field === 'comments') {
+      const commentData = body.entry[0].changes[0].value;
+      const commentText = commentData.text;
+      const commenterId = commentData.from.id;
+      const mediaId = commentData.media.id;
+
+      // Logika Privacy Pivot: 
+      // 1. Balas publik: "Cek DM ya Kak 😊"
+      // 2. AI Kirim pesan detail via DM (Private)
+      if (db) {
+        const commentId = commentData.id;
+        
+        // A. Balas Publik (Privacy Shield)
+        await notificationService.replyInstagramComment(commentId, "Siap Kak! Detailnya sudah kami kirim ke DM ya, silakan dicek 😊");
+
+        // B. Buat/Update Lead & Trigger AI for DM
+        const snap = await db.collection('aksena_leads').where('ig_sid', '==', commenterId).get();
+        let leadRef;
+        let leadData;
+
+        if (snap.empty) {
+          leadData = {
+            name: `IG User ${commenterId.slice(-4)}`,
+            ig_sid: commenterId,
+            stage: 'NEW',
+            source: 'INSTAGRAM_COMMENT',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          };
+          leadRef = await db.collection('aksena_leads').add(leadData);
+        } else {
+          leadRef = snap.docs[0].ref;
+          leadData = snap.docs[0].data();
+          await leadRef.update({ last_comment: commentText, source: 'INSTAGRAM_COMMENT' });
+        }
+
+        // C. Trigger AI Engine untuk mengirim Detail via DM
+        await handleIncomingChat(`[COMMENT_ON_MEDIA_${mediaId}]: ${commentText}`, leadData, leadRef, db, 'IG_COMMENT');
+      }
+      res.sendStatus(200);
+    }
+    else {
+      res.sendStatus(200);
+    }
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+// ==========================================
+// ROUTE 2d: Universal Marketplace Webhook (Shopee, Tokopedia, TikTok)
+// ==========================================
+app.post('/api/marketplace/webhook', async (req, res) => {
+  const { platform, sku, qty, orderId } = req.body;
+  const { handleMarketplaceSale } = require('./marketplaceService');
+  
+  if (!platform || !sku || !qty) {
+    return res.status(400).json({ error: 'Payload tidak lengkap (platform, sku, qty required)' });
+  }
+
+  console.log(`🛎️ [Marketplace Webhook] Pesanan dari ${platform}: Order #${orderId || 'N/A'}`);
+  
+  try {
+    if (db) {
+      await handleMarketplaceSale(platform, sku, qty, db);
+      res.status(200).json({ status: 'Stock synced successfully across 5 channels!' });
+    } else {
+      res.status(500).json({ error: 'Database not connected' });
+    }
+  } catch (err) {
+    console.error('❌ Gagal sinkronisasi marketplace:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
@@ -286,6 +404,88 @@ app.post('/api/ai/substitute', async (req, res) => {
     res.json({ alternatives: candidates.slice(0, 2) });
   } catch (error) {
     res.status(500).json({ error: 'Gagal mencari substitusi' });
+  }
+});
+
+// ==========================================
+// ROUTE 4c: Midtrans Payment Gateway
+// ==========================================
+
+// 1. Create Snap Transaction
+app.post('/api/payment/create-transaction', async (req, res) => {
+  const { userId, amount, type, description } = req.body;
+  
+  if (!userId || !amount || !type) {
+    return res.status(400).json({ error: 'Missing required payment fields' });
+  }
+
+  try {
+    const result = await midtransService.createTransaction(userId, amount, type, description);
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('❌ Payment Creation Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2. Midtrans Webhook (Notification)
+app.post('/api/payment/webhook', async (req, res) => {
+  const notification = req.body;
+  
+  try {
+    const statusResponse = await midtransService.verifyNotification(notification);
+    if (!statusResponse) return res.sendStatus(400);
+
+    const orderId = statusResponse.order_id;
+    const transactionStatus = statusResponse.transaction_status;
+    const fraudStatus = statusResponse.fraud_status;
+
+    console.log(`🛎️ [Midtrans Webhook] Order: ${orderId} Status: ${transactionStatus}`);
+
+    // Logic for SUCCESSFUL payment
+    if (transactionStatus === 'capture' || transactionStatus === 'settlement') {
+      if (fraudStatus === 'challenge') {
+        // Handle challenge if necessary
+      } else {
+        // SUCCESS: Update Firestore
+        const metadata = statusResponse.metadata || {};
+        const userId = metadata.userId;
+        const type = metadata.type; // 'TOPUP' or 'SUBSCRIPTION'
+        const amount = parseInt(statusResponse.gross_amount);
+
+        if (db && userId) {
+          if (type === 'TOPUP') {
+            // Add tokens based on amount (Pricing: 1 Token = Rp 500? or fixed packs)
+            // Let's assume the amount already represents tokens or the pack price
+            const tokensToAdd = Math.floor(amount / 500); // Simple example conversion
+            await tokenService.add(db, userId, tokensToAdd, `Midtrans Top-up: ${orderId}`);
+            console.log(`✅ Tokens added (${tokensToAdd}) for User: ${userId}`);
+          } else if (type === 'SUBSCRIPTION') {
+            // Update subscription validity (e.g. +30 days)
+            const userRef = db.collection('users').doc(userId);
+            const userDoc = await userRef.get();
+            const currentExpiry = userDoc.data()?.subscriptionExpiry?.toDate() || new Date();
+            const newExpiry = new Date(Math.max(currentExpiry.getTime(), Date.now()) + 30 * 24 * 60 * 60 * 1000);
+            
+            await userRef.update({ 
+               subscriptionExpiry: admin.firestore.FieldValue.serverTimestamp(), // placeholder or real expiry
+               plan: 'pro', // example
+               tokenBalance: admin.firestore.FieldValue.increment(2000) // Bundle tokens
+            });
+            console.log(`✅ Subscription updated for User: ${userId}`);
+          }
+        }
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    res.status(500).send('Webhook Error');
   }
 });
 
@@ -390,14 +590,14 @@ app.post('/api/marketer/broadcast', async (req, res) => {
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
              });
            }
-           if (target.phone) {
-             console.log(`➡️ Mengirim Broadcast WA ke ${target.phone}`);
-             db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
-                 type: 'WA_BROADCAST',
-                 message: msg,
-                 timestamp: admin.firestore.FieldValue.serverTimestamp()
-             });
-           }
+            if (target.phone) {
+              console.log(`➡️ Mengirim Broadcast WA ke ${target.phone}`);
+              db.collection('aksena_leads').doc(target.id).collection('contact_history').add({
+                  type: 'WA_BROADCAST',
+                  message: msg,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp()
+              });
+            }
         } else {
            let actualChannel = channel;
            // Smart Routing: Prioritaskan Email jika ada
@@ -482,12 +682,14 @@ const runDailyScan = async () => {
 
       if (diffDays > 60) {
         newStatus = 'Red';
-        newTag = 'SLOW_MOVING';
+        newTag = 'DEAD_STOCK';
         redCount++;
-        loss = (data.price || 0) * (data.stock || 0) * 0.5; // Estimasi 50% HPP
+        // Estimasi potential loss: (Harga Jual * Stok) * 0.6 (asumsi margin 40%)
+        loss = (data.price || 0) * (data.stock || 0) * 0.6; 
         totalPotentialLoss += loss;
       } else if (diffDays > 30) {
         newStatus = 'Yellow';
+        newTag = 'SLOW_MOVING';
       }
 
       if (data.stock_status !== newStatus || data.slow_moving_tag !== newTag || data.potential_loss !== loss) {
@@ -505,8 +707,12 @@ const runDailyScan = async () => {
       console.log(`✅ [ASL] Scan selesai. ${updatesCount} produk di-update. ${redCount} item Dead Stock ditemukan.`);
       
       if (redCount > 0) {
-        const notifMsg = `Bos, Aksena mendeteksi ada ${redCount} produk (Modal tertahan: Rp ${totalPotentialLoss.toLocaleString('id-ID')}) yang >60 hari tidak bergerak di gudang. Mau Aksena bantu buatkan "Rescue My Money" campaign hari ini? 🚨`;
-        console.log(`📱 [WA NOTIF] KE OWNER -> ${notifMsg}`);
+        const notifMsg = `🚨 [AKSENA ASL ALERT] 🚨\n\nBos, terdeteksi ${redCount} produk "Dead Stock" (>60 hari tidak terjual).\n💰 Est. Modal Tertahan: Rp ${totalPotentialLoss.toLocaleString('id-ID')}\n\nMau Aksena bantu buatkan kampanye "Smart Liquidation" untuk cairkan modal hari ini? 🚀`;
+        
+        // Kirim Notifikasi Real ke Owner via Mailketing (Email & WA Placeholder)
+        await notificationService.notifyOwner('Dead Stock Detected!', notifMsg);
+        
+        console.log(`📱 [MAILKETING NOTIF SENT] KE OWNER -> ${notifMsg}`);
       }
     } else {
       console.log('✅ [ASL] Scan selesai. Tidak ada produk yang berganti zona.');

@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, addDoc, updateDoc,
-  deleteDoc, query, where, orderBy, serverTimestamp,
+  deleteDoc, query, where, orderBy, serverTimestamp, onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -14,6 +14,17 @@ export async function getInventory(userId) {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export function subscribeToInventory(userId, callback) {
+  const q = query(
+    collection(db, COLL),
+    where('userId', '==', userId),
+    orderBy('name')
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
 }
 
 export async function addProduct(userId, data) {

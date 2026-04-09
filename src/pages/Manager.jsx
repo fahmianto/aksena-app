@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Package, AlertTriangle, TrendingUp, RefreshCw, Plus, Loader } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getInventory, addProduct, updateProduct, deleteProduct, seedDemoInventory
+  subscribeToInventory, getInventory, addProduct, updateProduct, deleteProduct
 } from '../services/inventoryService';
+import EmptyState from '../components/common/EmptyState';
 import toast from 'react-hot-toast';
 
 const statusBadge = {
@@ -24,27 +25,15 @@ export default function Manager() {
   const [loading, setLoading]     = useState(true);
   const [editing, setEditing]     = useState(null); // product being edited inline
 
-  async function loadInventory() {
+  useEffect(() => {
+    if (!currentUser) return;
     setLoading(true);
-    try {
-      const data = await getInventory(currentUser.uid);
-      if (data.length === 0) {
-        // First time: seed demo data
-        await seedDemoInventory(currentUser.uid);
-        const seeded = await getInventory(currentUser.uid);
-        setInventory(seeded);
-        toast.success('Demo inventori berhasil dimuat!');
-      } else {
-        setInventory(data);
-      }
-    } catch (err) {
-      toast.error('Gagal memuat inventori.');
-    } finally {
+    const unsub = subscribeToInventory(currentUser.uid, (data) => {
+      setInventory(data);
       setLoading(false);
-    }
-  }
-
-  useEffect(() => { loadInventory(); }, []);
+    });
+    return () => unsub();
+  }, [currentUser]);
 
   async function handleRestock(item) {
     const newStock = item.stock + item.minStock * 2;
@@ -132,8 +121,18 @@ export default function Manager() {
         </div>
         {loading ? (
           <div style={{ padding:'40px', textAlign:'center', color:'var(--color-text-muted)' }}>
-            <Loader size={24} style={{ marginBottom:8 }} />
+            <Loader size={24} style={{ marginBottom:8 }} className="spin" />
             <p style={{ fontSize:'13px' }}>Memuat data inventori...</p>
+          </div>
+        ) : inventory.length === 0 ? (
+          <div style={{ padding: '20px' }}>
+            <EmptyState 
+              icon={Package} 
+              title="Inventori Kosong" 
+              description="Anda belum memiliki produk. Tambahkan produk pertama Anda untuk mulai memantau stok secara real-time."
+              actionLabel="Tambah Produk Baru"
+              onAction={() => alert('Fitur tambah produk sedang dikembangkan')}
+            />
           </div>
         ) : (
           <div className="table-wrapper" style={{ border:'none', borderRadius:0 }}>

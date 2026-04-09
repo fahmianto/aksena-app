@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { 
   Users, Search, Filter, MoreVertical, 
   MessageSquare, Mail, Phone, Clock,
-  ChevronRight, AlertCircle, CheckCircle2
+  ChevronRight, AlertCircle, CheckCircle2,
+  Instagram, ShoppingBag, Store, Zap, MessageCircle
 } from 'lucide-react';
 import { 
   subscribeToLeads, 
@@ -13,6 +14,17 @@ import {
 import toast from 'react-hot-toast';
 import ChatHistoryModal from '../components/ChatHistoryModal';
 import { API_BASE_URL } from '../config/api';
+
+const getSourceIcon = (source) => {
+  const s = source?.toLowerCase() || '';
+  if (s.includes('whatsapp')) return { icon: MessageCircle, className: 'channel-wa', label: 'WhatsApp' };
+  if (s.includes('instagram_comment')) return { icon: Instagram, className: 'channel-ig-bg', label: 'IG Comment' };
+  if (s.includes('instagram')) return { icon: Instagram, className: 'channel-ig-bg', label: 'Instagram' };
+  if (s.includes('shopee')) return { icon: ShoppingBag, className: 'channel-sh', label: 'Shopee' };
+  if (s.includes('tokopedia')) return { icon: Store, className: 'channel-tk', label: 'Tokopedia' };
+  if (s.includes('tiktok')) return { icon: Zap, className: 'channel-tiktok', label: 'TikTok Shop' };
+  return { icon: Zap, className: 'badge-accent', label: source };
+};
 
 export default function LeadPipeline() {
   const [leads, setLeads] = useState([]);
@@ -125,10 +137,23 @@ export default function LeadPipeline() {
               <div className="column-cards" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {stageLeads.map((lead) => (
                   <div key={lead.id} className="card" style={{ padding: '12px', cursor: 'grab' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span className="badge" style={{ fontSize: '10px', background: 'rgba(0,212,255,0.1)', color: 'var(--color-accent)' }}>
-                        {lead.source}
-                      </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {(() => {
+                           const { icon: SourceIcon, className, label } = getSourceIcon(lead.source);
+                           return (
+                             <span className={`badge ${className}`} style={{ fontSize: '10px', gap: '4px', padding: '2px 6px' }}>
+                               <SourceIcon size={10} />
+                               {label}
+                             </span>
+                           );
+                        })()}
+                        {lead.last_comment && (
+                           <span className="badge badge-warning" style={{ fontSize: '9px', padding: '1px 4px' }} title={lead.last_comment}>
+                             KOMEN
+                           </span>
+                        )}
+                      </div>
                       <button className="btn-ghost" style={{ padding: 0 }}><MoreVertical size={14} /></button>
                     </div>
                     

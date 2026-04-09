@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, MessageSquare, Bot, Package,
+  LayoutDashboard, MessageSquare, Bot, Package, Truck,
   CreditCard, BarChart3, Settings, Zap, Brain, LifeBuoy, Users, Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -12,12 +12,14 @@ const navItems = [
   { path: '/closer',    icon: Bot,            label: 'The Closer',   sub: 'AI Sales', allowedRoles: ['super_admin', 'owner', 'manager', 'staff'] },
   { path: '/brain',     icon: Brain,          label: 'The Brain',    sub: 'Knowledge Base', allowedRoles: ['super_admin', 'owner'] },
   { path: '/manager',   icon: Package,        label: 'The Manager',  sub: 'Inventory', allowedRoles: ['super_admin', 'owner', 'manager'] },
+  { path: '/tracking',  icon: Truck,          label: 'The Tracker',  sub: 'Order Status', allowedRoles: ['super_admin', 'owner', 'manager', 'staff'] },
   { path: '/collector', icon: CreditCard,     label: 'The Collector',sub: 'Payments', allowedRoles: ['super_admin', 'owner', 'manager'] },
   { path: '/compass',   icon: BarChart3,      label: 'Market Compass', sub: 'Big Data 🔒', allowedRoles: ['super_admin', 'owner'] },
   { path: '/asl',       icon: LifeBuoy,       label: 'Rescue My Money',sub: 'Smart Liquidation', allowedRoles: ['super_admin', 'owner', 'manager'] },
   { path: '/leads',     icon: Users,          label: 'Lead Pipeline',  sub: 'Internal CRM', allowedRoles: ['super_admin'] },
   { path: '/drip-settings', icon: MessageSquare, label: 'Drip Sequences', sub: 'Auto WA', allowedRoles: ['super_admin'] },
   { path: '/campaigns',     icon: Megaphone,      label: 'Promo Broadcast',sub: 'Blast WA', allowedRoles: ['super_admin', 'owner', 'manager'] },
+  { path: '/billing',       icon: CreditCard,     label: 'Billing',      sub: 'Subscription', allowedRoles: ['super_admin', 'owner'] },
 ];
 
 export default function Sidebar() {
@@ -75,6 +77,37 @@ export default function Sidebar() {
           </div>
           <span className="live-dot" title="Connected"></span>
         </div>
+
+        {userProfile && (
+          <div style={{
+            margin: '12px 16px 0',
+            padding: '12px',
+            background: 'rgba(0, 212, 255, 0.05)',
+            border: '1px solid rgba(0, 212, 255, 0.1)',
+            borderRadius: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: '600', letterSpacing: '0.05em' }}>
+                AKSENA TOKENS
+              </span>
+              <NavLink to="/billing" style={{ 
+                fontSize: '10px', textDecoration: 'none', color: 'var(--color-accent)', 
+                fontWeight: '700', borderBottom: '1px solid currentColor' 
+              }}>
+                MANAGE
+              </NavLink>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Zap size={14} style={{ color: 'var(--color-accent)', fill: 'var(--color-accent)' }} />
+              <span style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-text-primary)' }}>
+                {userProfile.tokenBalance?.toLocaleString() || 0}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
