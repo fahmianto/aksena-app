@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MessageSquare, Instagram, ShoppingBag, Search, Send, Zap } from 'lucide-react';
+import { MessageSquare, Instagram, ShoppingBag, Search, Send, Zap, Loader } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { messageService } from '../services/messageService';
 import EmptyState from '../components/common/EmptyState';

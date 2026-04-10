@@ -39,8 +39,8 @@ export default function Manager() {
     const newStock = item.stock + item.minStock * 2;
     try {
       await updateProduct(item.id, { stock: newStock, status: 'ok' });
+      // subscribeToInventory will handle the update automatically
       toast.success(`Stok ${item.name} diperbarui!`);
-      loadInventory();
     } catch {
       toast.error('Gagal update stok.');
     }
@@ -114,7 +114,7 @@ export default function Manager() {
         <div className="card-header" style={{ padding:'16px 20px', borderBottom:'1px solid var(--color-border)' }}>
           <span className="card-title">Inventori Produk</span>
           <div style={{ display:'flex', gap:'8px' }}>
-            <button className="btn btn-secondary btn-sm" onClick={loadInventory} disabled={loading}>
+            <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()} disabled={loading}>
               {loading ? <Loader size={13} className="spin" /> : <RefreshCw size={13} />} Refresh
             </button>
           </div>
