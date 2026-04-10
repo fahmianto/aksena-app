@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle, Clock, AlertCircle, TrendingUp, Loader, RefreshCw, BarChart3 } from 'lucide-react';
+import { CreditCard, CheckCircle, Clock, AlertCircle, TrendingUp, Loader, RefreshCw, BarChart3, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   subscribeTransactions, getTransactions, addTransaction, updateTransactionStatus
@@ -52,6 +52,33 @@ export default function Collector() {
     { name: 'Sat', total: 7500000 },
     { name: 'Sun', total: totalRevenue || 500000 }, 
   ];
+
+  const exportToCSV = () => {
+    if (transactions.length === 0) {
+      toast.error('Tidak ada data untuk diexport');
+      return;
+    }
+    const headers = ['Tx Ref', 'Customer', 'Channel', 'Amount', 'Fee', 'Profit', 'Status'];
+    const rows = transactions.map(t => [
+      t.txRef,
+      t.customer,
+      t.channel || 'WA',
+      t.amount || 0,
+      t.fee || 0,
+      (t.amount || 0) - (t.fee || 0),
+      t.status
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Aksena_Transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('File CSV berhasil didownload!');
+  };
 
   return (
     <div className={showAnimation ? 'fade-in-up' : ''}>
@@ -127,28 +154,34 @@ export default function Collector() {
       <div className="grid-2-1">
         {/* Transaction Table */}
         <div className="card" style={{ padding: 0 }}>
-          <div className="card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)' }}>
-            <span className="card-title">Recent Transactions</span>
-            <span className="badge badge-success">Live</span>
+          <div className="card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span className="card-title">Recent Transactions </span>
+              <span className="badge badge-success" style={{ marginLeft: '8px' }}>Live</span>
+            </div>
+            <button onClick={exportToCSV} className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Download size={14} /> Export CSV
+            </button>
           </div>
           <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Ref</th><th>Customer</th><th>Channel</th><th>Amount</th><th>Status</th>
+                  <th>Ref</th><th>Customer</th><th>Channel</th><th>Amount</th><th>Est. Margin</th><th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: '24px' }}><Loader className="spin" /></td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}><Loader className="spin" /></td></tr>
                 ) : transactions.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-muted)' }}>Belum ada transaksi hari ini.</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-muted)' }}>Belum ada transaksi hari ini.</td></tr>
                 ) : transactions.map(t => (
                   <tr key={t.id}>
                     <td style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{t.txRef}</td>
                     <td style={{ fontWeight: 600 }}>{t.customer}</td>
                     <td><span className={`badge channel-${t.channel?.toLowerCase() || 'wa'}`}>{t.channel}</span></td>
                     <td style={{ fontWeight: 700 }}>{fmtRp(t.amount)}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--color-success)' }}>{fmtRp((t.amount || 0) - (t.fee || 0))}</td>
                     <td>{statusBadge[t.status]}</td>
                   </tr>
                 ))}

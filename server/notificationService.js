@@ -141,10 +141,10 @@ const notificationService = {
    */
   sendWAGateway: async (to, message, db = null, userId = null) => {
     const userConfig = await notificationService.getUserConfigs(db, userId);
-    const gatewayToken = userConfig?.fonnteToken || process.env.WA_GATEWAY_TOKEN; // Misal API Token Fonnte
+    const gatewayToken = userConfig?.fonnteToken || process.env.WA_GATEWAY_TOKEN || process.env.WATZAP_TOKEN;
     
     if (!gatewayToken || gatewayToken === 'DUMMY') {
-      console.warn('⚠️ [WA Gateway] Token DUMMY. Mode simulasi.');
+      console.warn('⚠️ [WA Gateway] Token DUMMY. Cek variabel WA_GATEWAY_TOKEN atau WATZAP_TOKEN di .env.');
       return { success: true, simulation: true };
     }
 

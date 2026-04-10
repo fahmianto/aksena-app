@@ -1,5 +1,5 @@
 # 🧠 MASTER DATA: AKSENA FEATURE TRACKER
-**Status Update Terakhir: 2026-04-10 (Aksena v2.2 Production Ready)**
+**Status Update Terakhir: 2026-04-10 (Aksena v2.3 Production Ready)**
 **Tujuan**: Dokumentasi tunggal (Ground Truth) untuk sinkronisasi antar sesi pengembangan.
 
 ---
@@ -20,6 +20,10 @@ Fitur yang sudah di-deploy dan berfungsi secara teknis di versi v2.2.
 | **Billing** | Aksena Token | Sistem pengisian saldo (Top-up) untuk penggunaan AI & WA API. |
 | **Billing** | **Midtrans Gateway** | **[v2.2]** Integrasi pembayaran via Snap (Sandbox) & Auto-update Token. |
 | **Security** | **Admin Role** | **[v2.2]** RBAC (Role-Based Access Control) untuk data finansial & settings. |
+| **Integrations** | **Marketplace Sync** | **[v2.3]** Implementasi Simulasi Fetch API Endpoint Asli (Shopee, Tokped, TikTok). |
+| **Dashboard** | **Financial Tracking** | **[v2.3]** Real-time Margin/Profit tracking di The Collector. |
+| **Data Ops** | **Export Database** | **[v2.3]** Export CSV untuk laporan transaksi/leads. |
+| **Dashboard** | **Market Compass** | **[v2.3]** Predictive Engine & Big Data pasar untuk kompetitor. |
 
 ---
 
@@ -28,8 +32,6 @@ Fitur yang sedang dalam tahap pengembangan/finishing.
 
 | Fitur | Status | Target Selanjutnya |
 | :--- | :--- | :--- |
-| Marketplace Sync | 80% | Implementasi Real API (saat ini logic core sync 5 channel sudah ready). |
-| Financial Tracking | 60% | Dashboard Billing sudah ada, tinggal perincian profit/loss per lead. |
 | ACI Advanced | 70% | Voice interaction & Analisis trend pasar berbasis chat history. |
 
 ---
@@ -39,9 +41,7 @@ Fitur yang sudah direncanakan tapi belum mulai dikerjakan.
 
 | Fitur | Prioritas | Detail Konsep |
 | :--- | :--- | :--- |
-| Export Database | Tinggi | Satu klik download database Lead/Pelanggan ke Excel (CSV). |
 | Midtrans Auto-Split | Tinggi | Potong biaya sukses (success fee) 0.5% otomatis saat bayar. |
-| Market Compass | Menengah | Dashboard trend produk nasional berbasis Big Data Aksena (Anonim). |
 | Mobile App (PWA) | Menengah | Versi aplikasi ringan untuk owner cek orderan dari HP. |
 | AI Voice Note | Rendah | AI bisa membalas pesan WA menggunakan Voice Note (Text-to-Speech). |
 

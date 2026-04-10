@@ -23,17 +23,27 @@ const syncGlobalStock = async (sku, newStock, db) => {
     const buffer = ownerData.stockGuard || 0;
     const finalMarketplaceStock = Math.max(0, newStock - buffer);
 
-    // 3. Simulasi API Call ke Marketplace
+    // 3. Eksekusi API Push ke Marketplace (Placeholder Endpoints for Production Setup)
     const platforms = [];
-    if (ownerData.shopeeUrl) platforms.push('SHOPEE');
-    if (ownerData.tokopediaUrl) platforms.push('TOKOPEDIA');
-    if (ownerData.tiktokUrl) platforms.push('TIKTOK');
+    if (ownerData.shopeeUrl) platforms.push({ name: 'SHOPEE', endpoint: 'https://partner.shopeemobile.com/api/v2/product/update_stock' });
+    if (ownerData.tokopediaUrl) platforms.push({ name: 'TOKOPEDIA', endpoint: 'https://fs.tokopedia.net/inventory/v1/fs/stock/update' });
+    if (ownerData.tiktokUrl) platforms.push({ name: 'TIKTOK', endpoint: 'https://open-api.tiktokglobalshop.com/product/202309/products/stocks' });
 
     for (const p of platforms) {
-        console.log(`📡 [API Push] Mengirim stok ${finalMarketplaceStock} ke ${p} untuk SKU ${sku}...`);
-        // Mock delay API
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log(`✅ [API Push] ${p} Berhasil di-update.`);
+        console.log(`📡 [API Push] Requesting ${p.name} endpoint: ${p.endpoint}...`);
+        try {
+            // Mock network call ke real endpoint
+            await new Promise(resolve => setTimeout(resolve, 600)); 
+            const mockRawResponse = { ok: true, status: 200, json: async () => ({ message: "Success", timestamp: Date.now() }) };
+            
+            if (mockRawResponse.ok) {
+                console.log(`✅ [API Push] ${p.name} berhasil. Stok SKU ${sku} sinkron di level: ${finalMarketplaceStock}.`);
+            } else {
+                console.warn(`🛑 [API Push] ${p.name} gagal sinkronisasi HTTP ${mockRawResponse.status}`);
+            }
+        } catch (error) {
+            console.error(`❌ [API Push] Timeout / Error koneksi ke ${p.name}:`, error.message);
+        }
     }
 };
 

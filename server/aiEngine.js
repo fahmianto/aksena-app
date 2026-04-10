@@ -143,15 +143,16 @@ const executeSystemAction = async (text, db) => {
 
         const order = orders[0];
         const status = order.status || 'Sedang Diproses';
-        const awb = order.awb || 'Belum ada';
-        const eta = order.eta || '3-5 hari kerja';
+        const awb = order.awb || 'Belum di-generate';
 
-        let reply = `Ketemu! Pesanan ${order.orderId} saat ini berstatus: *${status}*.\n`;
-        if (awb !== 'Belum ada') {
+        let reply = `Ketemu Kak! Pesanan ${order.orderId} saat ini berstatus: *${status}* ✨\n`;
+        if (awb !== 'Belum di-generate' && awb !== 'Belum ada') {
           reply += `📦 Nomor Resi: ${awb}\n`;
-          reply += `🔗 Cek progress detailnya di sini ya Kak: https://aksena.id/#/tracking?awb=${awb}\n`;
+          reply += `🔗 Tracking 24/7 di: https://aksena.id/#/tracking?awb=${awb}\n`;
+        } else {
+          reply += `📦 Paket Kakak sedang disiapkan oleh tim gudang. Resi otomatis akan muncul di sini segera setelah paket diserahkan ke kurir ya!\n`;
         }
-        reply += `Estimasi paket sampai dalam ${eta}. Ada lagi yang bisa Aksena bantu?`;
+        reply += `\nEstimasi perjalanan: 2-3 hari. Ada pertanyaan lain yang bisa dibantu, Kak?`;
         
         return reply;
       } catch (err) {
@@ -282,7 +283,7 @@ const handleIncomingChat = async (textMessage, lead, leadRef, db, source = 'WA')
                 finalUserMessage = `[SYSTEM_HINT: HOT INTENT. Fokus ke closing & arahkan ke link Marketplace/WA.]\n\n${textMessage}`;
             }
             if (textMessage.includes('[STORY_REACTION]')) {
-                finalUserMessage = `[SYSTEM_HINT: STORY REACTION. Balas sangat antusias & tanya apa yang mereka suka dari story tersebut.]\n\n${textMessage}`;
+                finalUserMessage = `[SYSTEM_HINT: CUSTOMER BEREAKSI PADA STORY KITA. Tugas Anda: 1. Balas dengan EKSPRESIF dan KEPO (misal: "Wah makasih love-nya Kak! 😍 Suka banget ya sama item yang ini?"). 2. Tawarkan varian warna/promo terkait dengan teknik SOFT SELLING. Jangan kaku.]\n\n${textMessage}`;
             }
 
             const isAnthropicReady = process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY.includes('sk-ant-api03');

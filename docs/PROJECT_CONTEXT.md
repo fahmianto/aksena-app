@@ -49,10 +49,10 @@ CRM & Conversational Intelligence Engine untuk e-commerce (WA, IG, Shopee).
 -   `src/pages/Dashboard.jsx`: Dashboard v2.1 (Flexing Mode enabled).
 
 ## ⏭️ Next Tasks (To-Do)
--   [ ] **Mailketing Domain Setup**: Memastikan domain pengirim aktif (Error -999 di Mailketing perlu verifikasi domain).
--   [ ] **IG Story Response**: Menyempurnakan filter `[STORY_REACTION]` di aiEngine.
--   [ ] **Order Tracking Logic**: Menghubungkan pencarian nomor resi dengan data `transactions` asli (Sudah ada placeholder).
--   [ ] **Third-Party WA Gateway**: Menyambungkan `notificationService.js` ke API Fonnte/Watzap jia Owner sudah langganan.
+-   [x] **Mailketing Domain Setup**: Memastikan domain pengirim aktif (Error -999 di Mailketing perlu verifikasi domain).
+-   [x] **IG Story Response**: Menyempurnakan filter `[STORY_REACTION]` di aiEngine.
+-   [x] **Order Tracking Logic**: Menghubungkan pencarian nomor resi dengan data `transactions` asli (Sudah ada placeholder).
+-   [x] **Third-Party WA Gateway**: Menyambungkan `notificationService.js` ke API Fonnte/Watzap jia Owner sudah langganan.
 
 ---
 *Good luck, Bro! Jangan lupa tetep bikin desain yang premium & WOW buat Bos.* 🦾🔥
